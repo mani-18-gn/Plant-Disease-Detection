@@ -8,7 +8,7 @@ from backend.db.models.core.user import User
 from backend.db.models.core.farmer_profile import FarmerProfile
 from backend.db.models.market.market_price import MarketPrice
 from backend.auth.jwt_handler import get_current_user_optional
-from backend.schemas.market import MarketAgentResponse, MarketPriceResponse, VarietyPriceItem
+from backend.schemas.market import MarketAgentResponse, MarketPriceResponse, VarietyPriceItem, MarketForecastItem
 from backend.agents.market.data_gov_client import fetch_live_market_prices, sync_market_prices
 from backend.agents.market.lstm_model import generate_lstm_forecast, load_market_lstm, LSTM_MIN_DATA_THRESHOLD
 from backend.agents.market.fallback_model import generate_fallback_price_forecast
@@ -142,6 +142,6 @@ def get_market_prices(
         source=source_str,
         is_synthetic=is_synthetic,
         variety_prices=variety_items,
-        forecast=forecast_items,
+        forecast=[MarketForecastItem(**item) if isinstance(item, dict) else item for item in forecast_items],
         historical_prices=pydantic_history,
     )

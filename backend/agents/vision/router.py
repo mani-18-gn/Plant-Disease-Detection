@@ -107,7 +107,7 @@ def get_sample_images():
     if not SAMPLE_DIR.exists():
         return []
 
-    samples = [
+    samples: list[dict[str, object]] = [
         {
             "filename": "Tomato___Early_blight___0012b9d2-2130-4a06-a834-b1f3af34f57e___RS_Erly.B 8389.JPG",
             "title": "Tomato Early Blight",
@@ -200,9 +200,10 @@ def get_sample_images():
 
     available = []
     for item in samples:
-        fpath = SAMPLE_DIR / item["filename"]
+        filename_str = str(item["filename"])
+        fpath = SAMPLE_DIR / filename_str
         if fpath.exists():
-            item["download_url"] = f"/agents/vision/sample-image-file/{item['filename']}"
+            item["download_url"] = f"/agents/vision/sample-image-file/{filename_str}"
             item["size_bytes"] = fpath.stat().st_size
             available.append(item)
 

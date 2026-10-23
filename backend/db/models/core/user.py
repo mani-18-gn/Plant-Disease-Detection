@@ -1,9 +1,14 @@
+from datetime import datetime
+from typing import TYPE_CHECKING
 import enum
 from sqlalchemy import text, String, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
+
+if TYPE_CHECKING:
+    from backend.db.models.core.farmer_profile import FarmerProfile
 
 
 class UserRole(str, enum.Enum):
@@ -28,12 +33,12 @@ class User(Base):
         nullable=False,
         server_default=UserRole.FARMER.value,
     )
-    created_at: Mapped[str] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),
     )
-    last_login_at: Mapped[str] = mapped_column(
+    last_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )

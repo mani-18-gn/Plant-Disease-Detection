@@ -1,9 +1,17 @@
+from typing import TYPE_CHECKING
 import enum
 from datetime import date
 from sqlalchemy import text, String, Integer, Numeric, Date, ForeignKey, Enum as SAEnum, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
+
+if TYPE_CHECKING:
+    from backend.db.models.core.farm import Farm
+    from backend.db.models.agronomy.farm_activity import FarmActivity
+    from backend.db.models.agronomy.disease_detection import DiseaseDetection
+    from backend.db.models.logs.advisory import Advisory
+    from backend.db.models.logs.feedback import Feedback
 
 
 class BlockStatus(str, enum.Enum):
@@ -31,7 +39,7 @@ class CropBlock(Base):
     variety: Mapped[str | None] = mapped_column(String, nullable=True)
     planting_date: Mapped[date] = mapped_column(Date, nullable=False)
     number_of_trees: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    spacing_meters: Mapped[object] = mapped_column(Numeric, nullable=True)
+    spacing_meters: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     status: Mapped[BlockStatus] = mapped_column(
         SAEnum(BlockStatus, name="blockstatus", schema="core", values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,

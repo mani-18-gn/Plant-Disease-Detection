@@ -25,7 +25,7 @@ try:
     with engine.connect() as conn:
         result = conn.execute(text("SELECT 1 AS ping"))
         row = result.fetchone()
-        assert row[0] == 1, "Unexpected result from SELECT 1"
+        assert row is not None and row[0] == 1, "Unexpected result from SELECT 1"
     print("[OK]   Connected successfully -- SELECT 1 returned 1.")
     print("       Your backend is wired to the Neon database correctly.\n")
 except Exception as e:

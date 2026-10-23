@@ -40,11 +40,15 @@ def fetch_live_weather(lat: float | None = None, lon: float | None = None) -> di
     Fetches current weather conditions, 24h hourly forecast, and 7-day daily forecast
     from Open-Meteo API (no API key required).
     """
-    use_default = (lat is None or lon is None)
-    target_lat = DEFAULT_LAT if use_default else lat
-    target_lon = DEFAULT_LON if use_default else lon
+    if lat is None or lon is None:
+        target_lat = DEFAULT_LAT
+        target_lon = DEFAULT_LON
+        location_source = "default_fallback"
+    else:
+        target_lat = lat
+        target_lon = lon
+        location_source = "farm_coordinates"
 
-    location_source = "default_fallback" if use_default else "farm_coordinates"
     region_key = get_grid_region_key(target_lat, target_lon)
 
     url = "https://api.open-meteo.com/v1/forecast"

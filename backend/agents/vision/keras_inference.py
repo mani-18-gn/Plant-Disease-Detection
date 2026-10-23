@@ -26,7 +26,7 @@ import numpy as np
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 try:
-    import tensorflow as tf
+    import tensorflow as tf  # pyright: ignore[reportMissingImports, reportMissingModuleSource]  # type: ignore[import]
 except ImportError:
     tf = None
 

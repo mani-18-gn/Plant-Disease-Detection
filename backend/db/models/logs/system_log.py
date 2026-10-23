@@ -1,3 +1,4 @@
+from datetime import datetime
 import enum
 from sqlalchemy import text, String, Text, Enum as SAEnum, DateTime
 from sqlalchemy.dialects.postgresql import UUID
@@ -27,7 +28,7 @@ class SystemLog(Base):
         index=True,
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    logged_at: Mapped[object] = mapped_column(
+    logged_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),

@@ -20,7 +20,7 @@ def _compile_uuid_sqlite(type_, compiler, **kw):
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 
 if is_sqlite:
-    engine_kwargs = {"connect_args": {"check_same_thread": False}}
+    engine_kwargs: dict[str, object] = {"connect_args": {"check_same_thread": False}}
     if ":memory:" in settings.DATABASE_URL:
         engine_kwargs["poolclass"] = StaticPool
 

@@ -20,8 +20,8 @@ import numpy as np
 from PIL import Image
 
 # Ensure stdout supports UTF-8 on Windows
-if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding="utf-8")
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    getattr(sys.stdout, "reconfigure")(encoding="utf-8")
 
 # Add backend to path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -96,11 +96,11 @@ def evaluate():
         latency_ms = (time.perf_counter() - t0) * 1000.0
         latencies.append(latency_ms)
 
-        predicted_raw = pred.get("raw_class")
-        confidence = pred.get("confidence", 0.0)
+        predicted_raw = str(pred.get("raw_class") or "")
+        confidence = float(pred.get("confidence", 0.0))
 
         # Check top-1 and top-3
-        top_candidates = [c.get("raw_class") for c in pred.get("top_predictions", [])]
+        top_candidates = [str(c.get("raw_class") or "") for c in pred.get("top_predictions", []) if isinstance(c, dict)]
         top1_correct = (predicted_raw.strip().lower() == gt_label.strip().lower())
         top3_correct = any(c.strip().lower() == gt_label.strip().lower() for c in top_candidates)
 

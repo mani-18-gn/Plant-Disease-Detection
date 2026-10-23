@@ -1,7 +1,12 @@
+from datetime import datetime
+from typing import TYPE_CHECKING
 from sqlalchemy import text, String, Numeric, Boolean, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
+
+if TYPE_CHECKING:
+    from backend.db.models.core.crop_block import CropBlock
 
 
 class DiseaseDetection(Base):
@@ -21,10 +26,10 @@ class DiseaseDetection(Base):
     )
     image_path: Mapped[str] = mapped_column(String, nullable=False)
     predicted_disease: Mapped[str] = mapped_column(String, nullable=False)
-    cnn_confidence: Mapped[object] = mapped_column(Numeric, nullable=False)
-    posterior_probability: Mapped[object] = mapped_column(Numeric, nullable=True)
+    cnn_confidence: Mapped[float] = mapped_column(Numeric, nullable=False)
+    posterior_probability: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     validated: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
-    detected_at: Mapped[object] = mapped_column(
+    detected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),

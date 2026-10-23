@@ -72,9 +72,9 @@ def synthesize_farm_status(
         )
 
         if cached_reading:
-            w_temp = float(cached_reading.temperature)
-            w_hum = float(cached_reading.humidity)
-            w_rain = float(cached_reading.rainfall_mm)
+            w_temp = float(cached_reading.temperature) if cached_reading.temperature is not None else 28.0
+            w_hum = float(cached_reading.humidity) if cached_reading.humidity is not None else 75.0
+            w_rain = float(cached_reading.rainfall_mm) if cached_reading.rainfall_mm is not None else 0.0
             w_source = cached_reading.source.value if hasattr(cached_reading.source, "value") else str(cached_reading.source)
             w_synthetic = (cached_reading.source == WeatherSource.SYNTHETIC_FALLBACK)
         else:

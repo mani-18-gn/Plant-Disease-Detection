@@ -55,7 +55,9 @@ def submit_feedback(
 
     # 2. Extract State and Action Keys from parent advisory
     advisory = db.query(Advisory).filter(Advisory.id == str(payload.advisory_id)).first()
-    snapshot = advisory.input_snapshot or {} if advisory else {}
+    if not advisory:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent advisory not found")
+    snapshot = advisory.input_snapshot if isinstance(advisory.input_snapshot, dict) else {}
     state_k = extract_state_key(snapshot)
     priority_val = advisory.priority.value if hasattr(advisory.priority, "value") else str(advisory.priority)
     action_k = extract_action_key(priority_val, snapshot.get("recommended_actions", []))

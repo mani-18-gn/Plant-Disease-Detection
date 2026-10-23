@@ -16,6 +16,6 @@ class MarketPrice(Base):
     )
     mandi_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     commodity: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    price_per_kg: Mapped[object] = mapped_column(Numeric, nullable=False)
+    price_per_kg: Mapped[float] = mapped_column(Numeric, nullable=False)
     price_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     source: Mapped[str] = mapped_column(String, nullable=False)

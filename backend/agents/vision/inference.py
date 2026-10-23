@@ -120,12 +120,14 @@ def check_image_quality(image: Image.Image) -> Dict[str, Any]:
 
     # Exposure check
     try:
-        r, g, b = image.getpixel((width // 2, height // 2))
-        bright = (r + g + b) / 3.0
-        if bright > 250:
-            warnings.append("Image appears overexposed or blank. Ensure the plant leaf is visible and well-lit.")
-        elif bright < 10:
-            warnings.append("Image is too dark. Please take a photograph in diffuse natural daylight.")
+        pixel = image.getpixel((width // 2, height // 2))
+        if isinstance(pixel, (tuple, list)) and len(pixel) >= 3:
+            r, g, b = pixel[0], pixel[1], pixel[2]
+            bright = (float(r) + float(g) + float(b)) / 3.0
+            if bright > 250:
+                warnings.append("Image appears overexposed or blank. Ensure the plant leaf is visible and well-lit.")
+            elif bright < 10:
+                warnings.append("Image is too dark. Please take a photograph in diffuse natural daylight.")
     except Exception:
         pass
 
@@ -280,13 +282,13 @@ def run_multicrop_vision_inference(
     k = min(3, len(probabilities))
     top_scores, top_indices = torch.topk(probabilities, k=k)
 
-    top_1_idx = top_indices[0].item()
+    top_1_idx = int(top_indices[0].item())
     top_1_score = round(top_scores[0].item(), 4)
 
     # Build top candidate list
     top_predictions = []
     for score, idx in zip(top_scores, top_indices):
-        idx_val = idx.item()
+        idx_val = int(idx.item())
         advisory_item = get_diagnosis_advisory(class_index=idx_val)
         raw_class_val = model.config.id2label.get(idx_val) or model.config.id2label.get(str(idx_val)) or str(idx_val)
         top_predictions.append({
@@ -516,7 +518,7 @@ def run_pytorch_vision_inference(image_bytes: bytes, block_crop: Optional[str] =
         max_score, max_idx = torch.max(probabilities, dim=0)
 
         confidence = round(max_score.item(), 4)
-        predicted_class = CLASS_NAMES[max_idx.item()]
+        predicted_class = CLASS_NAMES[int(max_idx.item())]
         is_inconclusive = confidence < 0.70
 
         advisory = get_diagnosis_advisory(raw_label=predicted_class)

@@ -1,8 +1,13 @@
+from datetime import datetime
+from typing import TYPE_CHECKING
 import enum
-from sqlalchemy import text, String, ForeignKey, Text, Enum as SAEnum, DateTime
+from sqlalchemy import text, ForeignKey, Text, Enum as SAEnum, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
+
+if TYPE_CHECKING:
+    from backend.db.models.core.farmer_profile import FarmerProfile
 
 
 class NotificationChannel(str, enum.Enum):
@@ -43,6 +48,6 @@ class Notification(Base):
         server_default=NotificationStatus.PENDING.value,
     )
     # sent_at is nullable: pending notifications have not been sent yet
-    sent_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     farmer: Mapped["FarmerProfile"] = relationship("FarmerProfile", back_populates="notifications")

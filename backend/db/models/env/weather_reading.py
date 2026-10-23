@@ -1,8 +1,13 @@
+from datetime import datetime
+from typing import TYPE_CHECKING
 import enum
 from sqlalchemy import text, String, Numeric, ForeignKey, Enum as SAEnum, DateTime, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
+
+if TYPE_CHECKING:
+    from backend.db.models.core.farm import Farm
 
 
 class WeatherSource(str, enum.Enum):
@@ -36,14 +41,14 @@ class WeatherReading(Base):
     )
     # region_key: grid-cell cache key, used instead of or alongside farm_id
     region_key: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
-    temperature: Mapped[object] = mapped_column(Numeric, nullable=True)
-    humidity: Mapped[object] = mapped_column(Numeric, nullable=True)
-    rainfall_mm: Mapped[object] = mapped_column(Numeric, nullable=True)
+    temperature: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    humidity: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    rainfall_mm: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     source: Mapped[WeatherSource] = mapped_column(
         SAEnum(WeatherSource, name="weathersource", schema="env", values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
     )
-    recorded_at: Mapped[object] = mapped_column(
+    recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),

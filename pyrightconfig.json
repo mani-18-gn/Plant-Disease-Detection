@@ -1,0 +1,11 @@
+{
+  "include": [
+    "."
+  ],
+  "extraPaths": [
+    ".",
+    "backend"
+  ],
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
+}
