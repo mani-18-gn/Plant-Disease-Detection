@@ -2,7 +2,7 @@
 Throwaway connectivity check -- run this ONCE after pasting your real
 DATABASE_URL into backend/.env to confirm the app can reach Neon.
 
-Run from the project root (PlantGuard/) with:
+Run from the project root (areca-agent/) with:
     python -m backend.scripts.check_db_connection
 
 Delete this file after a successful check (or leave it -- it's harmless).

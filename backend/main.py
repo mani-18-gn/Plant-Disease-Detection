@@ -67,8 +67,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="PlantGuard Backend API",
-    description="FastAPI monorepo for PlantGuard multi-agent system (PostgreSQL 5-schema architecture)",
+    title="ArecaAgent Backend API",
+    description="FastAPI monorepo for ArecaAgent multi-agent system (PostgreSQL 5-schema architecture)",
     version="0.2.0",
     lifespan=lifespan,
 )
@@ -100,7 +100,7 @@ app.add_middleware(
 def root():
     return {
         "status": "healthy",
-        "app": "PlantGuard Monorepo Backend API",
+        "app": "ArecaAgent Monorepo Backend API",
         "version": "0.2.0",
         "environment": settings.ENVIRONMENT
     }

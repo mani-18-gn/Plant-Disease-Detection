@@ -29,7 +29,6 @@ from backend.agents.vision.advisory_db import (
     search_knowledge_base,
     get_all_supported_crops,
 )
-from backend.agents.vision.web_research import search_agricultural_research
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +107,7 @@ def get_sample_images():
     if not SAMPLE_DIR.exists():
         return []
 
-    samples: list[dict[str, object]] = [
+    samples = [
         {
             "filename": "Tomato___Early_blight___0012b9d2-2130-4a06-a834-b1f3af34f57e___RS_Erly.B 8389.JPG",
             "title": "Tomato Early Blight",
@@ -201,10 +200,9 @@ def get_sample_images():
 
     available = []
     for item in samples:
-        filename_str = str(item["filename"])
-        fpath = SAMPLE_DIR / filename_str
+        fpath = SAMPLE_DIR / item["filename"]
         if fpath.exists():
-            item["download_url"] = f"/agents/vision/sample-image-file/{filename_str}"
+            item["download_url"] = f"/agents/vision/sample-image-file/{item['filename']}"
             item["size_bytes"] = fpath.stat().st_size
             available.append(item)
 
@@ -291,7 +289,7 @@ async def detect_disease(
     db: Session = Depends(get_db),
 ):
     """
-    PlantGuard Universal Plant Disease Vision Agent Endpoint:
+    Universal Plant Disease Vision Agent Endpoint:
     1. If crop_block_id is provided: verifies farmer ownership and loads block context.
     2. If no crop_block_id is provided: executes in Preview / Demo Mode without DB mutation.
     3. Validates image payload (type, size, uncorrupted pixels).
@@ -374,20 +372,6 @@ async def detect_disease(
             detail=f"Image inference error: {str(e)}",
         )
 
-    # Corroborate with live backend-only peer-reviewed research (CrossRef / OpenAlex / ICAR)
-    if inference_result.get("is_plant") and inference_result.get("crop"):
-        try:
-            live_research = await search_agricultural_research(
-                crop=inference_result.get("crop", ""),
-                condition=inference_result.get("condition", ""),
-                scientific_name=inference_result.get("scientific_name"),
-                causal_agent=inference_result.get("causal_agent"),
-            )
-            if live_research:
-                inference_result["online_research"] = live_research
-        except Exception as e:
-            logger.warning(f"Online agricultural research fetch error: {e}")
-
     # 5. Save uploaded image to persistent directory
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     extension = Path(file.filename or "image.jpg").suffix or ".jpg"
@@ -465,8 +449,4 @@ async def detect_disease(
         image_quality=inference_result.get("image_quality"),
         crop_match=inference_result.get("crop_match"),
         crop_mismatch_warning=inference_result.get("crop_mismatch_warning"),
-        crop_support_status=inference_result.get("crop_support_status"),
-        identification_rationale=inference_result.get("identification_rationale"),
-        online_research=inference_result.get("online_research"),
-        visual_similarity=inference_result.get("visual_similarity"),
     )

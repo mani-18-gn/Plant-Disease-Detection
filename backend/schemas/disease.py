@@ -59,11 +59,5 @@ class DiseaseDetectionResponse(BaseModel):
     image_quality: dict | None = None
     crop_match: bool | None = None
     crop_mismatch_warning: str | None = None
-    crop_support_status: str | None = None
-    identification_rationale: str | None = None
-
-    # Multi-Stage Corroborating Evidence (Online Research & Visual Prototype Retrieval)
-    online_research: list[dict] | None = None
-    visual_similarity: list[dict] | None = None
 
     model_config = ConfigDict(from_attributes=True)

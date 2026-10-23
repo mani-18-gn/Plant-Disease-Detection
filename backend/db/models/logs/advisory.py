@@ -1,15 +1,8 @@
-from datetime import datetime
-from typing import TYPE_CHECKING
 import enum
-from sqlalchemy import text, Boolean, ForeignKey, Enum as SAEnum, Text, DateTime
+from sqlalchemy import text, String, Boolean, ForeignKey, Enum as SAEnum, Text, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
-
-if TYPE_CHECKING:
-    from backend.db.models.core.farmer_profile import FarmerProfile
-    from backend.db.models.core.crop_block import CropBlock
-    from backend.db.models.logs.feedback import Feedback
 
 
 class AdvisoryPriority(str, enum.Enum):
@@ -55,11 +48,11 @@ class Advisory(Base):
         SAEnum(AdvisorySource, name="advisorysource", schema="logs", values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
     )
-    input_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    input_snapshot: Mapped[object] = mapped_column(JSONB, nullable=True)
     read_status: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
-    created_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),

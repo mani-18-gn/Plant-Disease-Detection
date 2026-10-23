@@ -1,12 +1,7 @@
-from datetime import datetime
-from typing import TYPE_CHECKING
 from sqlalchemy import text, Numeric, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
-
-if TYPE_CHECKING:
-    from backend.db.models.core.iot_device import IoTDevice
 
 
 class SoilSensorReading(Base):
@@ -24,8 +19,8 @@ class SoilSensorReading(Base):
         nullable=False,
         index=True,
     )
-    moisture_pct: Mapped[float] = mapped_column(Numeric, nullable=False)
-    recorded_at: Mapped[datetime] = mapped_column(
+    moisture_pct: Mapped[object] = mapped_column(Numeric, nullable=False)
+    recorded_at: Mapped[object] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),

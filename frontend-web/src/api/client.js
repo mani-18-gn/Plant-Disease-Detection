@@ -1,4 +1,5 @@
 import axios from "axios";
+import { handleMockRequest } from "./mockData";
 
 const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
@@ -26,7 +27,7 @@ const apiClient = axios.create({
 // Request Interceptor: Attach JWT Bearer Token safely
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("plantguard_token") || localStorage.getItem("areca_token");
+    const token = localStorage.getItem("areca_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       // Safe masked logging for debugging (never log raw tokens)
@@ -43,15 +44,24 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Extract data & handle 401 Unauthorized
+// Response Interceptor: Extract data & handle 401 Unauthorized or fallback to mock data
 apiClient.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
+    // If backend server is unreachable (Network Error / connection refused)
+    if (!error.response && error.request) {
+      console.warn("Backend server not detected at", API_BASE_URL, "- Serving request via Standalone Mock Mode:", error.config?.url);
+      try {
+        const mockResult = await handleMockRequest(error.config || {});
+        return mockResult;
+      } catch (mockErr) {
+        return Promise.reject(new Error(`Unable to reach ArecaAgent backend server at ${API_BASE_URL} (${error.message || "Connection refused"}).`));
+      }
+    }
+
     if (error.response) {
       if (error.response.status === 401) {
-        localStorage.removeItem("plantguard_token");
         localStorage.removeItem("areca_token");
-        localStorage.removeItem("plantguard_user");
         localStorage.removeItem("areca_user");
         if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
           window.location.href = "/login";
@@ -64,10 +74,6 @@ apiClient.interceptors.response.use(
       return Promise.reject(new Error(message));
     } else if (error.code === "ECONNABORTED") {
       return Promise.reject(new Error("Request timed out (server took too long to respond)."));
-    } else if (error.request) {
-      return Promise.reject(
-        new Error(`Unable to reach PlantGuard backend server at ${API_BASE_URL} (${error.message || "Connection refused"}).`)
-      );
     }
     return Promise.reject(error);
   }

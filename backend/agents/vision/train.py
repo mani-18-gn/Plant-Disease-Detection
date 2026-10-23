@@ -110,7 +110,7 @@ def evaluate(model: nn.Module, test_loader: DataLoader, device: torch.device, sm
         all_preds,
         labels=list(range(len(CLASS_NAMES))),
         average="macro",
-        zero_division=0,  # pyright: ignore[reportArgumentType]
+        zero_division=0,
     )
 
     return all_targets, all_preds, round(float(macro_f1), 4)
@@ -215,7 +215,7 @@ def run_training(
                 labels=list(range(len(CLASS_NAMES))),
                 target_names=CLASS_NAMES,
                 digits=4,
-                zero_division=0,  # pyright: ignore[reportArgumentType]
+                zero_division=0,
             )
             print(f"  [+] NEW BEST MODEL SAVED (Val Macro F1: {best_macro_f1:.4f}) -> {save_path.name}")
         else:

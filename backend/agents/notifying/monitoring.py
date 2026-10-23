@@ -16,7 +16,7 @@ def log_system_event(
     service: str,
     level: LogLevel,
     message: str,
-) -> SystemLog | None:
+) -> SystemLog:
     """Records an operational event or alert in logs.system_logs."""
     try:
         log_entry = SystemLog(

@@ -1,4 +1,4 @@
-# PlantGuard — Universal Plant Disease Intelligence AI — Model Evaluation Report
+# Universal Plant Disease Intelligence AI — Model Evaluation Report
 
 ## 1. Executive Summary
 - **Model Architecture**: MobileNetV2 (`MobileNetV2ForImageClassification`)

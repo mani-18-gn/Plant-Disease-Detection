@@ -12,8 +12,10 @@ export const ProtectedLayout = () => {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <p style={{ fontSize: "1.1rem", fontWeight: 600, color: "#10b981" }}>Loading PlantGuard System...</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", backgroundColor: "#ffe17c" }}>
+        <p style={{ fontSize: "1.2rem", fontWeight: 800, color: "#000000", fontFamily: "var(--font-heading)" }}>
+          Loading ArecaAgent System...
+        </p>
       </div>
     );
   }

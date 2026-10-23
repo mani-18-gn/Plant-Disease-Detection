@@ -1,75 +1,172 @@
+/* ==========================================================================
+   ArecaAgent Neo-Brutalist Design System
+   Specification:
+   - Primary: #ffe17c (Yellow)
+   - Background: #171e19 (Charcoal)
+   - Accent: #b7c6c2 (Sage)
+   - UI: #ffffff (White)
+   - Text: #000000 (Black)
+   - Typography:
+     * Headings: 'Cabinet Grotesk' (Extrabold 800, tracking-tighter -0.04em)
+     * Body: 'Satoshi' (Medium, 500)
+     * Data: 'JetBrains Mono' (Bold 700)
+   - UI Elements:
+     * 2px solid black borders on all cards, buttons, sections
+     * Hard shadows (no blur):
+       - 4px 4px 0px 0px #000000 for standard elements
+       - 8px 8px 0px 0px #000000 for large containers
+     * Buttons hover: transform: translate(4px, 4px) and removes shadow
+     * 32px x 32px radial dot pattern (opacity 10%) on primary yellow backgrounds
+   ========================================================================== */
+
 :root {
-  --primary: #10b981;
-  --primary-hover: #059669;
-  --primary-light: #d1fae5;
-  --primary-dark: #064e3b;
-  
-  --secondary: #0284c7;
-  --secondary-light: #e0f2fe;
-  
-  --accent: #f59e0b;
-  --accent-light: #fef3c7;
-  
-  --danger: #ef4444;
-  --danger-light: #fee2e2;
-  
-  --bg-main: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-sidebar: #0f172a;
-  --bg-sidebar-hover: #1e293b;
-  
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-light: #f8fafc;
-  
-  --border-color: #e2e8f0;
-  --border-focus: #10b981;
-  
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  /* Core Palette */
+  --neo-primary: #ffe17c;
+  --neo-bg: #171e19;
+  --neo-accent: #b7c6c2;
+  --neo-ui: #ffffff;
+  --neo-black: #000000;
+
+  /* Semantic Mappings */
+  --primary: #ffe17c;
+  --primary-hover: #ffd952;
+  --accent: #b7c6c2;
+  --charcoal: #171e19;
+
+  /* High contrast status colors with 2px borders */
+  --danger: #ff5252;
+  --warning: #ffb703;
+  --success: #2ec4b6;
+  --info: #70d6ff;
+
+  /* Borders & Shadows */
+  --border-neo: 2px solid #000000;
+  --shadow-standard: 4px 4px 0px 0px #000000;
+  --shadow-large: 8px 8px 0px 0px #000000;
+  --shadow-small: 2px 2px 0px 0px #000000;
+  --shadow-pressed: 0px 0px 0px 0px #000000;
+
+  /* Typography */
+  --font-heading: 'Cabinet Grotesk', -apple-system, sans-serif;
+  --font-body: 'Satoshi', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Radii (crisp Neo-Brutalist corners) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
+  /* Tactile Transition */
+  --transition-tactile: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.12s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ==========================================================================
+   2. Base Styles & Yellow Background with 32x32px Dot Pattern
+   ========================================================================== */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+}
+
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--bg-main);
-  color: var(--text-main);
+  height: 100%;
+  font-family: var(--font-body);
+  font-weight: 500;
+  background-color: var(--neo-primary);
+  /* 32px x 32px radial dot pattern (opacity 10%) on primary yellow background */
+  background-image: radial-gradient(rgba(0, 0, 0, 0.10) 2px, transparent 2px);
+  background-size: 32px 32px;
+  background-attachment: fixed;
+  color: var(--neo-black);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6, .brand-font {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 700;
-  color: #0f172a;
+.neo-dot-pattern {
+  background-color: var(--neo-primary);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.10) 2px, transparent 2px);
+  background-size: 32px 32px;
 }
 
-/* App Layout */
+/* ==========================================================================
+   3. Typography Hierarchy
+   ========================================================================== */
+h1, h2, h3, h4, h5, h6, .brand-font {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  letter-spacing: -0.04em; /* tracking-tighter */
+  color: var(--neo-black);
+  line-height: 1.15;
+}
+
+h1 { font-size: 2.2rem; }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.3rem; }
+h4 { font-size: 1.1rem; }
+h5 { font-size: 0.95rem; }
+
+p, span, label, div {
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+.mono-num, [data-telemetry] {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ==========================================================================
+   4. App Shell & Navigation
+   ========================================================================== */
 .app-container {
   display: flex;
   min-height: 100vh;
+  background-color: var(--neo-primary);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.10) 2px, transparent 2px);
+  background-size: 32px 32px;
 }
 
+/* Sidebar: Charcoal #171e19, 2px black border, 4px hard shadow */
 .sidebar {
-  width: 260px;
-  background-color: var(--bg-sidebar);
-  color: var(--text-light);
+  width: 280px;
+  background-color: var(--neo-bg);
+  color: #ffffff;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  border-right: 2px solid var(--neo-black);
+  box-shadow: 4px 0px 0px 0px var(--neo-black);
+  position: relative;
+  z-index: 30;
+}
+
+.sidebar a {
+  position: relative;
+  transition: var(--transition-tactile);
+  border: 2px solid transparent;
+}
+
+.sidebar a:hover:not(.active) {
+  background-color: #242f27 !important;
+  color: var(--neo-primary) !important;
+  border-color: var(--neo-black) !important;
+  transform: translate(2px, 0);
+}
+
+.sidebar a.active {
+  background-color: var(--neo-primary) !important;
+  color: var(--neo-black) !important;
+  border: 2px solid var(--neo-black) !important;
+  box-shadow: 3px 3px 0px 0px var(--neo-black) !important;
+  font-weight: 800 !important;
 }
 
 .main-content {
@@ -78,40 +175,57 @@ h1, h2, h3, h4, h5, h6, .brand-font {
   flex-direction: column;
   min-width: 0;
   overflow-y: auto;
+  background: transparent;
 }
 
+/* Topbar: UI White, 2px solid black border bottom, 4px hard shadow */
 .topbar {
-  height: 70px;
-  background-color: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
+  height: 72px;
+  background-color: var(--neo-ui);
+  border-bottom: 2px solid var(--neo-black);
+  box-shadow: 0 4px 0px 0px var(--neo-black);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 2rem;
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 25;
 }
 
 .page-body {
-  padding: 2rem;
-  max-width: 1400px;
+  padding: 2.25rem;
+  max-width: 1480px;
   width: 100%;
   margin: 0 auto;
 }
 
-/* Cards & Containers */
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+/* ==========================================================================
+   5. Neo-Brutalist Cards & Containers
+   2px solid black borders, 4px standard shadow, 8px large container shadow
+   ========================================================================== */
+.card, .neo-card {
+  background-color: var(--neo-ui);
+  border: 2px solid var(--neo-black);
+  border-radius: var(--radius-md);
   padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-standard);
+  transition: var(--transition-tactile);
+  position: relative;
+  color: var(--neo-black);
 }
 
-.card:hover {
-  box-shadow: var(--shadow-md);
+.card:hover, .neo-card:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px var(--neo-black);
+}
+
+/* Large containers: 8px 8px 0px 0px #000000 hard shadow */
+.card-large, .neo-container-large, .bento-section {
+  border: 2px solid var(--neo-black) !important;
+  box-shadow: var(--shadow-large) !important;
+  border-radius: var(--radius-lg);
+  background-color: var(--neo-ui);
 }
 
 .card-header {
@@ -119,151 +233,256 @@ h1, h2, h3, h4, h5, h6, .brand-font {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1.25rem;
+  gap: 0.75rem;
+  border-bottom: 2px solid var(--neo-black);
+  padding-bottom: 0.75rem;
 }
 
 .card-title {
-  font-size: 1.15rem;
-  font-weight: 700;
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
+  color: var(--neo-black);
 }
 
-/* Buttons */
-.btn {
+/* ==========================================================================
+   6. Neo-Brutalist Buttons & Tactile Press Micro-Interactions
+   Buttons hover state transforms: translate(4px, 4px) and removes the shadow
+   ========================================================================== */
+.btn, button.neo-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1.25rem;
-  border-radius: var(--radius-md);
+  gap: 0.55rem;
+  padding: 0.65rem 1.35rem;
+  border: 2px solid var(--neo-black);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-heading);
   font-size: 0.925rem;
-  font-weight: 600;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   cursor: pointer;
-  border: none;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-standard);
+  transition: var(--transition-tactile);
   text-decoration: none;
+  line-height: 1.2;
+  position: relative;
+  user-select: none;
+  color: var(--neo-black);
+  background-color: var(--neo-ui);
 }
 
+/* Hover: transforms translate(4px, 4px) and removes shadow to simulate a physical press */
+.btn:hover, button.neo-btn:hover {
+  transform: translate(4px, 4px);
+  box-shadow: var(--shadow-pressed);
+}
+
+.btn:active, button.neo-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: var(--shadow-pressed);
+}
+
+/* Variants */
 .btn-primary {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25);
+  background-color: var(--neo-primary);
+  color: var(--neo-black);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.35);
+  background-color: #ffd84d;
+}
+
+.btn-sage, .btn-accent {
+  background-color: var(--neo-accent);
+  color: var(--neo-black);
+}
+
+.btn-sage:hover, .btn-accent:hover {
+  background-color: #a3b5b0;
+}
+
+.btn-dark, .btn-charcoal {
+  background-color: var(--neo-bg);
+  color: #ffffff;
+}
+
+.btn-dark:hover, .btn-charcoal:hover {
+  background-color: #242f27;
+  color: var(--neo-primary);
 }
 
 .btn-secondary {
-  background: #f1f5f9;
-  color: #334155;
+  background-color: #ffffff;
+  color: var(--neo-black);
 }
 
 .btn-secondary:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.btn-outline {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-}
-
-.btn-outline:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background-color: #f4f4f4;
 }
 
 .btn-danger {
-  background: var(--danger);
-  color: white;
+  background-color: var(--danger);
+  color: #ffffff;
 }
 
-/* Badges & Pills */
-.badge {
+.btn-danger:hover {
+  background-color: #e03b3b;
+}
+
+/* ==========================================================================
+   7. Telemetry Badges & Status Chips
+   ========================================================================== */
+.badge, .neo-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border: 2px solid var(--neo-black);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.02em;
+  font-family: var(--font-heading);
+  box-shadow: var(--shadow-small);
+  line-height: 1.25;
+  color: var(--neo-black);
+  background-color: var(--neo-ui);
 }
 
 .badge-urgent {
-  background-color: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fca5a5;
+  background-color: var(--danger);
+  color: #ffffff;
 }
 
 .badge-high {
-  background-color: #ffedd5;
-  color: #c2410c;
-  border: 1px solid #fdba74;
+  background-color: #ff9f1c;
+  color: var(--neo-black);
 }
 
 .badge-moderate, .badge-medium {
-  background-color: #fef3c7;
-  color: #b45309;
-  border: 1px solid #fde68a;
+  background-color: var(--neo-primary);
+  color: var(--neo-black);
 }
 
 .badge-low, .badge-healthy {
-  background-color: #d1fae5;
-  color: #047857;
-  border: 1px solid #a7f3d0;
+  background-color: var(--success);
+  color: var(--neo-black);
 }
 
-/* Form Controls */
+.badge-sage {
+  background-color: var(--neo-accent);
+  color: var(--neo-black);
+}
+
+.badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--neo-black);
+  display: inline-block;
+  background-color: currentColor;
+}
+
+/* Animations */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ==========================================================================
+   8. Neo-Brutalist Form Controls
+   ========================================================================== */
 .form-group {
   margin-bottom: 1.25rem;
 }
 
 .form-label {
   display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   margin-bottom: 0.4rem;
-  color: #334155;
+  color: var(--neo-black);
 }
 
-.form-input, .form-select, .form-textarea {
+.form-input, .form-select, .form-textarea, select, input[type="text"], input[type="password"], input[type="email"], input[type="number"], input[type="tel"], input[type="date"] {
   width: 100%;
-  padding: 0.65rem 0.9rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--neo-black);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-weight: 500;
   font-size: 0.95rem;
   background-color: #ffffff;
-  color: var(--text-main);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  color: var(--neo-black);
+  box-shadow: 3px 3px 0px 0px var(--neo-black);
+  transition: var(--transition-tactile);
 }
 
-.form-input:focus, .form-select:focus, .form-textarea:focus {
+.form-input:focus, .form-select:focus, .form-textarea:focus, select:focus, input:focus {
   outline: none;
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  background-color: #ffffff;
+  box-shadow: 5px 5px 0px 0px var(--neo-black);
+  transform: translate(-1px, -1px);
 }
 
-/* Situation Score Gauge */
+.form-input::placeholder, .form-textarea::placeholder {
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   9. Situation Score Gauge
+   ========================================================================== */
 .score-circle {
-  width: 140px;
-  height: 140px;
+  width: 144px;
+  height: 144px;
   border-radius: 50%;
+  border: 3px solid var(--neo-black);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   margin: 0 auto;
   position: relative;
-  background: radial-gradient(circle, #ffffff 60%, transparent 62%);
+  background-color: var(--neo-ui);
+  box-shadow: 6px 6px 0px 0px var(--neo-black);
+  transition: var(--transition-tactile);
 }
 
-/* Grid Layouts */
+.score-circle:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 4px 4px 0px 0px var(--neo-black);
+}
+
+/* ==========================================================================
+   10. Grid Layouts & Scrollbars
+   ========================================================================== */
 .grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -279,9 +498,30 @@ h1, h2, h3, h4, h5, h6, .brand-font {
 .grid-4 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.25rem;
+  gap: 1.35rem;
 }
 
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--neo-primary);
+  border-left: 2px solid var(--neo-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--neo-bg);
+  border: 2px solid var(--neo-black);
+  border-radius: 0px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #000000;
+}
+
+/* Responsive */
 @media (max-width: 1024px) {
   .grid-3, .grid-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -296,6 +536,9 @@ h1, h2, h3, h4, h5, h6, .brand-font {
     grid-template-columns: 1fr;
   }
   .page-body {
-    padding: 1rem;
+    padding: 1.25rem;
+  }
+  .topbar {
+    padding: 0 1rem;
   }
 }

@@ -1,17 +1,9 @@
-from datetime import datetime
-from typing import TYPE_CHECKING
 import enum
 from sqlalchemy import text, String, ForeignKey, Numeric, Enum as SAEnum
 from sqlalchemy import DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
-
-if TYPE_CHECKING:
-    from backend.db.models.core.farmer_profile import FarmerProfile
-    from backend.db.models.core.crop_block import CropBlock
-    from backend.db.models.core.iot_device import IoTDevice
-    from backend.db.models.env.weather_reading import WeatherReading
 
 
 class IrrigationType(str, enum.Enum):
@@ -37,15 +29,15 @@ class Farm(Base):
         index=True,
     )
     farm_name: Mapped[str] = mapped_column(String, nullable=False)
-    latitude: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-    longitude: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-    total_area_acres: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    latitude: Mapped[object] = mapped_column(Numeric, nullable=True)
+    longitude: Mapped[object] = mapped_column(Numeric, nullable=True)
+    total_area_acres: Mapped[object] = mapped_column(Numeric, nullable=True)
     soil_type: Mapped[str | None] = mapped_column(String, nullable=True)
     irrigation_type: Mapped[IrrigationType | None] = mapped_column(
         SAEnum(IrrigationType, name="irrigationtype", schema="core", values_callable=lambda obj: [e.value for e in obj]),
         nullable=True,
     )
-    created_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[str] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),

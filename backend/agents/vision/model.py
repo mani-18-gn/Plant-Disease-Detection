@@ -47,7 +47,7 @@ class ArecanutCNN(nn.Module):
         self.backbone = models.mobilenet_v2(weights=weights)
 
         # Replace classification head
-        in_features: int = int(getattr(self.backbone.classifier[1], "in_features", 1280))
+        in_features = self.backbone.classifier[1].in_features
         self.backbone.classifier = nn.Sequential(
             nn.Linear(in_features, 256),
             nn.BatchNorm1d(256),

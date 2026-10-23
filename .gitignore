@@ -33,6 +33,7 @@ backend/.env
 *.pem
 
 # IDE & OS
+.agents/
 .vscode/
 .idea/
 *.swp

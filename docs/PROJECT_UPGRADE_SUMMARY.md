@@ -1,8 +1,8 @@
-# Project Upgrade: PlantGuard — Universal Plant Disease Intelligence AI
+# Project Upgrade: Universal Plant Disease Intelligence AI — India
 
 ## Executive Summary
 
-Your application has been rebranded and upgraded into **PlantGuard** (Universal Plant Disease Intelligence AI), a multi-crop plant pathology detection and verified agronomic treatment guidance platform tailored for Indian agriculture and ready for your presentation.
+Your **Areca-Agent** repository has been upgraded into **Universal Plant Disease Intelligence AI — India**, a multi-crop plant pathology detection and verified agronomic treatment guidance platform tailored for Indian agriculture and ready for your hackathon presentation tomorrow morning.
 
 ---
 

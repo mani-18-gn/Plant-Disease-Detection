@@ -1,14 +1,7 @@
-from datetime import datetime
-from typing import TYPE_CHECKING
 from sqlalchemy import text, Integer, ForeignKey, Text, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
-
-if TYPE_CHECKING:
-    from backend.db.models.logs.advisory import Advisory
-    from backend.db.models.core.farmer_profile import FarmerProfile
-    from backend.db.models.core.crop_block import CropBlock
 
 
 class Feedback(Base):
@@ -42,7 +35,7 @@ class Feedback(Base):
     )
     rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-5
     outcome_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),

@@ -70,9 +70,9 @@ def validate_diagnosis(
     )
 
     if cached_reading:
-        temp = float(cached_reading.temperature) if cached_reading.temperature is not None else 28.0
-        hum = float(cached_reading.humidity) if cached_reading.humidity is not None else 75.0
-        rain = float(cached_reading.rainfall_mm) if cached_reading.rainfall_mm is not None else 0.0
+        temp = float(cached_reading.temperature)
+        hum = float(cached_reading.humidity)
+        rain = float(cached_reading.rainfall_mm)
         is_synthetic = (cached_reading.source == WeatherSource.SYNTHETIC_FALLBACK)
     else:
         live_data = fetch_live_weather(lat, lon)
@@ -84,10 +84,12 @@ def validate_diagnosis(
     weather_risk = calculate_disease_risk_score(humidity=hum, temperature=temp, rainfall_mm=rain, is_synthetic=is_synthetic)
 
     # 4. Hybrid Historical Prior calculation
-    hist_query = db.query(DiseaseDetection).join(CropBlock, DiseaseDetection.crop_block_id == CropBlock.id)
-    if farm:
-        hist_query = hist_query.filter(CropBlock.farm_id == str(farm.id))
-    historical_detections = hist_query.all()
+    historical_detections = (
+        db.query(DiseaseDetection)
+        .join(CropBlock, DiseaseDetection.crop_block_id == CropBlock.id)
+        .filter(CropBlock.farm_id == str(farm.id) if farm else True)
+        .all()
+    )
 
     prior = get_hybrid_prior(
         predicted_disease=detection.predicted_disease,

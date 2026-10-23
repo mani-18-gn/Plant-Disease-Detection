@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShieldCheck, Lock, User, Phone, MapPin, Building, ArrowRight } from "lucide-react";
+import { Leaf, Lock, User, Phone, MapPin, Building, ArrowRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export const Register = () => {
@@ -53,11 +53,11 @@ export const Register = () => {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-          <div style={{ display: "inline-flex", background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", padding: "0.7rem", borderRadius: "14px", marginBottom: "0.5rem", boxShadow: "0 6px 14px rgba(16, 185, 129, 0.2)" }}>
-            <ShieldCheck size={30} color="#ffffff" />
+          <div style={{ display: "inline-flex", background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", padding: "0.6rem", borderRadius: "12px", marginBottom: "0.5rem" }}>
+            <Leaf size={28} color="#ffffff" />
           </div>
-          <h2 style={{ fontSize: "1.6rem", color: "#0f172a", margin: 0, fontWeight: 800 }}>Register Farmer Account</h2>
-          <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0.2rem 0 0 0" }}>PlantGuard Agricultural Intelligence Network</p>
+          <h2 style={{ fontSize: "1.5rem", color: "#0f172a", margin: 0 }}>Register Farmer Account</h2>
+          <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0.2rem 0 0 0" }}>Autonomous Arecanut Advisory Network</p>
         </div>
 
         {error && (
