@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "areca-agent-backend"
+name = "plantguard-backend"
 version = "0.1.0"
-description = "FastAPI backend for ArecaAgent multi-agent system"
-authors = [{ name = "ArecaAgent Team" }]
+description = "FastAPI backend for PlantGuard multi-agent system"
+authors = [{ name = "PlantGuard Team" }]
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "fastapi",

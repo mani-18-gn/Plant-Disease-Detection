@@ -26,7 +26,7 @@ const apiClient = axios.create({
 // Request Interceptor: Attach JWT Bearer Token safely
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("areca_token");
+    const token = localStorage.getItem("plantguard_token") || localStorage.getItem("areca_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       // Safe masked logging for debugging (never log raw tokens)
@@ -49,7 +49,9 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response) {
       if (error.response.status === 401) {
+        localStorage.removeItem("plantguard_token");
         localStorage.removeItem("areca_token");
+        localStorage.removeItem("plantguard_user");
         localStorage.removeItem("areca_user");
         if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
           window.location.href = "/login";
@@ -64,7 +66,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(new Error("Request timed out (server took too long to respond)."));
     } else if (error.request) {
       return Promise.reject(
-        new Error(`Unable to reach ArecaAgent backend server at ${API_BASE_URL} (${error.message || "Connection refused"}).`)
+        new Error(`Unable to reach PlantGuard backend server at ${API_BASE_URL} (${error.message || "Connection refused"}).`)
       );
     }
     return Promise.reject(error);

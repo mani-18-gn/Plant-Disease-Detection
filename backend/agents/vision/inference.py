@@ -1,5 +1,5 @@
 """
-Vision Agent Inference Engine for Plant Disease Diagnosis — Universal Multi-Crop Pipeline (India).
+Vision Agent Inference Engine for PlantGuard Disease Diagnosis — Universal Multi-Crop Pipeline (India).
 
 Implements the 8-stage safe diagnosis workflow:
 A. Validate and decode the uploaded image.

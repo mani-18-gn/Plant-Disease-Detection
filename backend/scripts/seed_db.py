@@ -255,7 +255,7 @@ def seed():
         notif = Notification(
             farmer_id=profile.id,
             channel=NotificationChannel.SMS,
-            content="[ArecaAgent Alert] High Priority Advisory: Apply Bordeaux mixture spray on Block A to protect against Koleroga.",
+            content="[PlantGuard Alert] High Priority Advisory: Apply Bordeaux mixture spray on Block A to protect against Koleroga.",
             status=NotificationStatus.SENT,
             sent_at=now_dt,
         )

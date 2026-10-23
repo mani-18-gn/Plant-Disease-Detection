@@ -33,7 +33,7 @@ import { useFarm } from "../context/FarmContext";
 // Bilingual translations dictionary
 const I18N = {
   en: {
-    title: "Universal Plant Disease Intelligence AI",
+    title: "PlantGuard — AI Plant Disease Intelligence",
     subtitle: "Evidence-backed neural pathology diagnosis & integrated management for Indian agriculture",
     langButton: "ಕನ್ನಡ (Kannada)",
     selectBlockAlert: "Please select an active Crop Block before running diagnosis.",
@@ -97,7 +97,7 @@ const I18N = {
     allCrops: "All Indian Crops",
   },
   kn: {
-    title: "ಸಾರ್ವತ್ರಿಕ ಸಸ್ಯ ರೋಗ ಪತ್ತೆ ಮತ್ತು ಕೃಷಿ ಸಲಹಾ AI",
+    title: "PlantGuard (ಪ್ಲಾಂಟ್‌ಗಾರ್ಡ್) — ಸಸ್ಯ ರೋಗ ಪತ್ತೆ ಮತ್ತು ಕೃಷಿ ಸಲಹಾ AI",
     subtitle: "ಭಾರತೀಯ ಕೃಷಿ ಮತ್ತು ತೋಟಗಾರಿಕಾ ಬೆಳೆಗಳಿಗೆ ವೈಜ್ಞಾನಿಕ ಆಧಾರಿತ ಎಲೆ ರೋಗ ಪತ್ತೆ ಮತ್ತು ಸಮಗ್ರ ನಿರ್ವಹಣಾ ವೇದಿಕೆ",
     langButton: "English",
     selectBlockAlert: "ರೋಗ ಪತ್ತೆ ಹಚ್ಚುವ ಮುನ್ನ ದಯವಿಟ್ಟು ಸಕ್ರಿಯ ಕ್ರಾಪ್ ಬ್ಲಾಕ್ ಆಯ್ಕೆಮಾಡಿ.",

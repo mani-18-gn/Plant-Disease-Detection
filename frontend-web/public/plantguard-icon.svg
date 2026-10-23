@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="pgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+  </defs>
+  <path d="M24 4L7 11V22C7 32.5 14.3 42.3 24 45C33.7 42.3 41 32.5 41 22V11L24 4Z" fill="url(#pgGradient)" />
+  <path d="M24 14C24 14 20 18 20 23C20 26.3 22.7 29 26 29C29.3 29 32 26.3 32 23C32 17 24 14 24 14Z" fill="#ffffff" opacity="0.95" />
+  <path d="M24 23C24 23 21 25.5 21 28.5C21 30.4 22.6 32 24.5 32C26.4 32 28 30.4 28 28.5C28 25 24 23 24 23Z" fill="#d1fae5" />
+  <path d="M24 29V36" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+</svg>

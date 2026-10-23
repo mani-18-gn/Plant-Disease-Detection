@@ -2,7 +2,7 @@
 Throwaway connectivity check -- run this ONCE after pasting your real
 DATABASE_URL into backend/.env to confirm the app can reach Neon.
 
-Run from the project root (areca-agent/) with:
+Run from the project root (PlantGuard/) with:
     python -m backend.scripts.check_db_connection
 
 Delete this file after a successful check (or leave it -- it's harmless).
@@ -25,7 +25,7 @@ try:
     with engine.connect() as conn:
         result = conn.execute(text("SELECT 1 AS ping"))
         row = result.fetchone()
-        assert row is not None and row[0] == 1, "Unexpected result from SELECT 1"
+        assert row[0] == 1, "Unexpected result from SELECT 1"
     print("[OK]   Connected successfully -- SELECT 1 returned 1.")
     print("       Your backend is wired to the Neon database correctly.\n")
 except Exception as e:

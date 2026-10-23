@@ -9,7 +9,7 @@ import {
   ClipboardList,
   User,
   LogOut,
-  Leaf,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -30,12 +30,12 @@ export const Sidebar = () => {
     <aside className="sidebar">
       {/* Brand Header */}
       <div style={{ padding: "1.5rem", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        <div style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", padding: "0.5rem", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Leaf size={22} color="#ffffff" />
+        <div style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", padding: "0.55rem", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)" }}>
+          <ShieldCheck size={22} color="#ffffff" />
         </div>
         <div>
-          <h2 style={{ fontSize: "1.2rem", color: "#ffffff", letterSpacing: "-0.02em", margin: 0 }}>ArecaAgent</h2>
-          <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block" }}>Autonomous Farm MAS</span>
+          <h2 style={{ fontSize: "1.25rem", color: "#ffffff", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>PlantGuard</h2>
+          <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block" }}>AI Plant Pathology & Health</span>
         </div>
       </div>
 

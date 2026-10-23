@@ -1,4 +1,4 @@
--- PostgreSQL Initialization Script for ArecaAgent
+-- PostgreSQL Initialization Script for PlantGuard
 -- Creates the 5 logical schemas under the single PostgreSQL database
 
 CREATE SCHEMA IF NOT EXISTS core;

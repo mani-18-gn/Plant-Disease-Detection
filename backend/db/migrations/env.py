@@ -1,5 +1,5 @@
 """
-Alembic env.py for ArecaAgent.
+Alembic env.py for PlantGuard.
 
 Key behaviours:
 - Reads DATABASE_URL from backend/config.py (pydantic-settings -> backend/.env).

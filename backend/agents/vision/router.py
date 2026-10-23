@@ -290,7 +290,7 @@ async def detect_disease(
     db: Session = Depends(get_db),
 ):
     """
-    Universal Plant Disease Vision Agent Endpoint:
+    PlantGuard Universal Plant Disease Vision Agent Endpoint:
     1. If crop_block_id is provided: verifies farmer ownership and loads block context.
     2. If no crop_block_id is provided: executes in Preview / Demo Mode without DB mutation.
     3. Validates image payload (type, size, uncorrupted pixels).

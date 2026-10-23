@@ -1,4 +1,4 @@
-# Universal Plant Disease Intelligence AI — Agricultural Resources & Verified Knowledge Base
+# PlantGuard — Agricultural Resources & Verified Knowledge Base
 
 ## 1. Public Agricultural Research Institutions (India & International)
 

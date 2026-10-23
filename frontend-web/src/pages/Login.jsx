@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Leaf, Lock, User, ArrowRight, Sparkles } from "lucide-react";
+import { ShieldCheck, Lock, User, ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export const Login = () => {
@@ -55,11 +55,11 @@ export const Login = () => {
       >
         {/* Brand */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <div style={{ display: "inline-flex", background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", padding: "0.75rem", borderRadius: "14px", marginBottom: "0.75rem" }}>
-            <Leaf size={32} color="#ffffff" />
+          <div style={{ display: "inline-flex", background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", padding: "0.85rem", borderRadius: "16px", marginBottom: "0.75rem", boxShadow: "0 8px 16px rgba(16, 185, 129, 0.25)" }}>
+            <ShieldCheck size={36} color="#ffffff" />
           </div>
-          <h2 style={{ fontSize: "1.75rem", color: "#0f172a", margin: "0 0 0.25rem 0" }}>ArecaAgent</h2>
-          <p style={{ fontSize: "0.9rem", color: "#64748b", margin: 0 }}>Autonomous Multi-Agent Farm Advisory</p>
+          <h2 style={{ fontSize: "1.85rem", color: "#0f172a", margin: "0 0 0.25rem 0", fontWeight: 800 }}>PlantGuard</h2>
+          <p style={{ fontSize: "0.9rem", color: "#64748b", margin: 0 }}>AI Plant Disease & Crop Health Intelligence</p>
         </div>
 
         {error && (

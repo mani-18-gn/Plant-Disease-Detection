@@ -1,4 +1,4 @@
-# ArecaAgent — Database Schema Specification
+# PlantGuard — Database Schema Specification
 
 One PostgreSQL database organized into 5 logical schemas: `core`, `agronomy`, `env`, `market`, `logs`.
 

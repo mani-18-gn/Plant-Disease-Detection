@@ -1,4 +1,4 @@
-# 🌱 Plant Disease Detection & Agricultural Intelligence Platform
+# 🌱 PlantGuard — AI Plant Disease Detection & Agricultural Intelligence Platform
 
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-009688.svg)](https://fastapi.tiangolo.com/)
@@ -7,7 +7,7 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-An end-to-end, multi-crop plant disease intelligence and agricultural management platform. The system combines deep neural computer vision, Bayesian diagnostic validation, microclimate weather tracking, regional mandi market intelligence, and multi-agent expert agronomy advisories to assist farmers and agricultural researchers.
+**PlantGuard** is an end-to-end, multi-crop plant disease intelligence and agricultural management platform. The system combines deep neural computer vision, Bayesian diagnostic validation, microclimate weather tracking, regional mandi market intelligence, and multi-agent expert agronomy advisories to assist farmers and agricultural researchers.
 
 ---
 
