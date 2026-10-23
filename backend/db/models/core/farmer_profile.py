@@ -1,17 +1,8 @@
-from datetime import datetime
-from typing import TYPE_CHECKING
 from sqlalchemy import text, String, ForeignKey
 from sqlalchemy import DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
-
-if TYPE_CHECKING:
-    from backend.db.models.core.user import User
-    from backend.db.models.core.farm import Farm
-    from backend.db.models.logs.advisory import Advisory
-    from backend.db.models.logs.notification import Notification
-    from backend.db.models.logs.feedback import Feedback
 
 
 class FarmerProfile(Base):
@@ -37,7 +28,7 @@ class FarmerProfile(Base):
     pincode: Mapped[str | None] = mapped_column(String, nullable=True)
     preferred_language: Mapped[str | None] = mapped_column(String, nullable=True)
     preferred_mandi: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[str] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),

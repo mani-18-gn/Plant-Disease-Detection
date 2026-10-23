@@ -5,9 +5,9 @@ import { farmerApi } from "../api/farmer";
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(() => localStorage.getItem("plantguard_token") || localStorage.getItem("areca_token"));
+  const [token, setToken] = useState(() => localStorage.getItem("areca_token"));
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("plantguard_user") || localStorage.getItem("areca_user");
+    const saved = localStorage.getItem("areca_user");
     return saved ? JSON.parse(saved) : null;
   });
   const [profile, setProfile] = useState(null);
@@ -35,7 +35,6 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     const data = await authApi.login(username, password);
     const accessToken = data.access_token;
-    localStorage.setItem("plantguard_token", accessToken);
     localStorage.setItem("areca_token", accessToken);
     setToken(accessToken);
 
@@ -50,13 +49,11 @@ export const AuthProvider = ({ children }) => {
         full_name: prof.full_name,
         role: "farmer",
       };
-      localStorage.setItem("plantguard_user", JSON.stringify(userInfo));
       localStorage.setItem("areca_user", JSON.stringify(userInfo));
       setUser(userInfo);
     } catch (err) {
       // If user has no profile yet, set basic user
       const userInfo = { username, role: "farmer" };
-      localStorage.setItem("plantguard_user", JSON.stringify(userInfo));
       localStorage.setItem("areca_user", JSON.stringify(userInfo));
       setUser(userInfo);
     }
@@ -87,7 +84,6 @@ export const AuthProvider = ({ children }) => {
     });
 
     const accessToken = data.access_token;
-    localStorage.setItem("plantguard_token", accessToken);
     localStorage.setItem("areca_token", accessToken);
     setToken(accessToken);
 
@@ -102,21 +98,17 @@ export const AuthProvider = ({ children }) => {
         full_name: prof.full_name,
         role: "farmer",
       };
-      localStorage.setItem("plantguard_user", JSON.stringify(userInfo));
       localStorage.setItem("areca_user", JSON.stringify(userInfo));
       setUser(userInfo);
     } catch (err) {
       const userInfo = { username, full_name, role: "farmer" };
-      localStorage.setItem("plantguard_user", JSON.stringify(userInfo));
       localStorage.setItem("areca_user", JSON.stringify(userInfo));
       setUser(userInfo);
     }
   };
 
   const logout = () => {
-    localStorage.removeItem("plantguard_token");
     localStorage.removeItem("areca_token");
-    localStorage.removeItem("plantguard_user");
     localStorage.removeItem("areca_user");
     setToken(null);
     setUser(null);

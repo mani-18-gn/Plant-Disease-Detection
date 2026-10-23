@@ -9,7 +9,7 @@ import {
   ClipboardList,
   User,
   LogOut,
-  ShieldCheck,
+  Leaf,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -29,60 +29,208 @@ export const Sidebar = () => {
   return (
     <aside className="sidebar">
       {/* Brand Header */}
-      <div style={{ padding: "1.5rem", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        <div style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", padding: "0.55rem", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)" }}>
-          <ShieldCheck size={22} color="#ffffff" />
+      <div
+        style={{
+          padding: "1.4rem 1.25rem",
+          borderBottom: "2px solid #000000",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.85rem",
+          backgroundColor: "#171e19",
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: "#ffe17c",
+            border: "2px solid #000000",
+            padding: "0.5rem",
+            borderRadius: "6px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "3px 3px 0px 0px #000000",
+          }}
+        >
+          <Leaf size={22} color="#000000" strokeWidth={2.5} />
         </div>
         <div>
-          <h2 style={{ fontSize: "1.25rem", color: "#ffffff", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>PlantGuard</h2>
-          <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block" }}>AI Plant Pathology & Health</span>
+          <h2
+            style={{
+              fontSize: "1.3rem",
+              color: "#ffffff",
+              letterSpacing: "-0.04em",
+              margin: 0,
+              fontWeight: 800,
+              fontFamily: "var(--font-heading)",
+            }}
+          >
+            ArecaAgent
+          </h2>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              backgroundColor: "#b7c6c2",
+              color: "#000000",
+              border: "1px solid #000000",
+              borderRadius: "4px",
+              padding: "0.1rem 0.45rem",
+              fontSize: "0.7rem",
+              letterSpacing: "0.02em",
+              fontWeight: 800,
+              textTransform: "uppercase",
+              fontFamily: "var(--font-heading)",
+              marginTop: "3px",
+            }}
+          >
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                backgroundColor: "#171e19",
+                display: "inline-block",
+              }}
+            />
+            Autonomous MAS
+          </span>
         </div>
       </div>
 
       {/* Navigation Links */}
-      <nav style={{ flex: 1, padding: "1.25rem 0.75rem", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+      <nav
+        style={{
+          flex: 1,
+          padding: "1.25rem 0.85rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.5rem",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "0.72rem",
+            color: "#b7c6c2",
+            fontWeight: 800,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            padding: "0.2rem 0.5rem",
+            fontFamily: "var(--font-heading)",
+          }}
+        >
+          Core Intelligence
+        </span>
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
               key={item.to}
               to={item.to}
+              className={({ isActive }) => (isActive ? "active" : "")}
               style={({ isActive }) => ({
                 display: "flex",
                 alignItems: "center",
-                gap: "0.75rem",
-                padding: "0.7rem 1rem",
-                borderRadius: "8px",
-                color: isActive ? "#ffffff" : "#94a3b8",
-                backgroundColor: isActive ? "#10b981" : "transparent",
-                fontWeight: isActive ? 600 : 500,
+                gap: "0.85rem",
+                padding: "0.65rem 0.95rem",
+                borderRadius: "6px",
+                color: isActive ? "#000000" : "#ffffff",
+                backgroundColor: isActive ? "#ffe17c" : "transparent",
+                fontWeight: isActive ? 800 : 600,
                 fontSize: "0.925rem",
                 textDecoration: "none",
-                transition: "all 0.15s ease",
+                border: isActive ? "2px solid #000000" : "2px solid transparent",
+                boxShadow: isActive ? "3px 3px 0px 0px #000000" : "none",
+                fontFamily: "var(--font-heading)",
+                letterSpacing: "-0.02em",
+                transition: "all 0.12s cubic-bezier(0.4, 0, 0.2, 1)",
               })}
             >
-              <Icon size={18} />
-              <span>{item.label}</span>
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    size={19}
+                    strokeWidth={2.2}
+                    style={{
+                      color: isActive ? "#000000" : "#b7c6c2",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span>{item.label}</span>
+                </>
+              )}
             </NavLink>
           );
         })}
       </nav>
 
       {/* User Footer & Logout */}
-      <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid #1e293b", backgroundColor: "#0b1120" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div
+        style={{
+          padding: "1.1rem 1.25rem",
+          borderTop: "2px solid #000000",
+          backgroundColor: "#171e19",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <p
+              style={{
+                fontSize: "0.9rem",
+                fontWeight: 800,
+                color: "#ffffff",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                margin: 0,
+                fontFamily: "var(--font-heading)",
+                letterSpacing: "-0.02em",
+              }}
+            >
               {user?.full_name || user?.username || "Farmer"}
             </p>
-            <p style={{ fontSize: "0.75rem", color: "#64748b" }}>Karnataka Region</p>
+            <p
+              style={{
+                fontSize: "0.75rem",
+                color: "#ffe17c",
+                margin: "2px 0 0 0",
+                fontWeight: 600,
+                fontFamily: "var(--font-body)",
+              }}
+            >
+              Karnataka Region
+            </p>
           </div>
           <button
             onClick={logout}
             title="Log out"
-            style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "0.4rem", borderRadius: "6px", display: "flex" }}
+            style={{
+              backgroundColor: "#ffffff",
+              border: "2px solid #000000",
+              color: "#000000",
+              cursor: "pointer",
+              padding: "0.45rem",
+              borderRadius: "4px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "2px 2px 0px 0px #000000",
+              transition: "transform 0.12s, box-shadow 0.12s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#ff5252";
+              e.currentTarget.style.color = "#ffffff";
+              e.currentTarget.style.transform = "translate(2px, 2px)";
+              e.currentTarget.style.boxShadow = "0px 0px 0px 0px #000000";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#ffffff";
+              e.currentTarget.style.color = "#000000";
+              e.currentTarget.style.transform = "none";
+              e.currentTarget.style.boxShadow = "2px 2px 0px 0px #000000";
+            }}
           >
-            <LogOut size={18} />
+            <LogOut size={16} strokeWidth={2.5} />
           </button>
         </div>
       </div>

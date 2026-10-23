@@ -77,9 +77,9 @@ def get_current_weather(
 
     if cached_reading:
         reading_id = uuid.UUID(cached_reading.id)
-        temp = float(cached_reading.temperature) if cached_reading.temperature is not None else 28.0
-        hum = float(cached_reading.humidity) if cached_reading.humidity is not None else 75.0
-        rain = float(cached_reading.rainfall_mm) if cached_reading.rainfall_mm is not None else 0.0
+        temp = float(cached_reading.temperature)
+        hum = float(cached_reading.humidity)
+        rain = float(cached_reading.rainfall_mm)
         source = cached_reading.source
         recorded_at = cached_reading.recorded_at
         is_synthetic = (source == WeatherSource.SYNTHETIC_FALLBACK)
@@ -110,9 +110,9 @@ def get_current_weather(
         db.refresh(new_reading)
 
         reading_id = uuid.UUID(new_reading.id)
-        temp = float(new_reading.temperature) if new_reading.temperature is not None else 28.0
-        hum = float(new_reading.humidity) if new_reading.humidity is not None else 75.0
-        rain = float(new_reading.rainfall_mm) if new_reading.rainfall_mm is not None else 0.0
+        temp = float(new_reading.temperature)
+        hum = float(new_reading.humidity)
+        rain = float(new_reading.rainfall_mm)
         source = new_reading.source
         recorded_at = new_reading.recorded_at
         is_synthetic = live_data["is_synthetic"]

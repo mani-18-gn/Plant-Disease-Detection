@@ -43,8 +43,6 @@ def preprocess_image_bytes(image_bytes: bytes) -> torch.Tensor:
     """
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     tensor = eval_transform(image)
-    if not isinstance(tensor, torch.Tensor):
-        tensor = torch.tensor(tensor)
     return tensor.unsqueeze(0)  # Shape: (1, 3, 224, 224)
 
 

@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 echo ========================================================
-echo Starting PlantGuard AI Backend
+echo Starting Plant Disease Detection / BharatCrop AI Backend
 echo URL: http://127.0.0.1:8000
 echo API Docs: http://127.0.0.1:8000/docs
 echo ========================================================

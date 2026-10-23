@@ -1,13 +1,9 @@
-from datetime import date, datetime
-from typing import TYPE_CHECKING
 import enum
-from sqlalchemy import text, String, Numeric, Date, ForeignKey, Enum as SAEnum, DateTime
+from datetime import date
+from sqlalchemy import text, String, Numeric, Date, ForeignKey, Enum as SAEnum, Text, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base
-
-if TYPE_CHECKING:
-    from backend.db.models.core.crop_block import CropBlock
 
 
 class ActivityType(str, enum.Enum):
@@ -50,17 +46,17 @@ class FarmActivity(Base):
     )
     activity_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     product_used: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
-    quantity: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    quantity: Mapped[object] = mapped_column(Numeric, nullable=True)
     quantity_unit: Mapped[str | None] = mapped_column(String, nullable=True)
-    cost: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    cost: Mapped[object] = mapped_column(Numeric, nullable=True)
     performed_by: Mapped[str | None] = mapped_column(String, nullable=True)
-    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    details: Mapped[object] = mapped_column(JSONB, nullable=True)
     logged_via: Mapped[LoggedVia] = mapped_column(
         SAEnum(LoggedVia, name="loggedvia", schema="agronomy", values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         server_default=LoggedVia.APP.value,
     )
-    created_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),

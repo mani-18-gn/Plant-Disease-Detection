@@ -44,7 +44,7 @@ def evaluate():
     images = [img for img in images if img.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]]
 
     print("=" * 70)
-    print("PLANTGUARD — UNIVERSAL PLANT DISEASE INTELLIGENCE AI — MODEL EVALUATION")
+    print("UNIVERSAL PLANT DISEASE INTELLIGENCE AI — MODEL EVALUATION")
     print(f"Test Directory: {test_dir}")
     print(f"Total Test Benchmark Samples: {len(images)}")
     print("=" * 70)
@@ -138,7 +138,7 @@ def evaluate():
     # Generate Markdown Report
     report_path = REPO_ROOT / "docs" / "MODEL_EVALUATION_REPORT.md"
     report_lines = [
-        "# PlantGuard — Universal Plant Disease Intelligence AI — Model Evaluation Report",
+        "# Universal Plant Disease Intelligence AI — Model Evaluation Report",
         "",
         "## 1. Executive Summary",
         f"- **Model Architecture**: MobileNetV2 (`MobileNetV2ForImageClassification`)",
