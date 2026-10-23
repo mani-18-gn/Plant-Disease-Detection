@@ -29,6 +29,7 @@ from backend.agents.vision.advisory_db import (
     search_knowledge_base,
     get_all_supported_crops,
 )
+from backend.agents.vision.web_research import search_agricultural_research
 
 logger = logging.getLogger(__name__)
 
@@ -373,6 +374,20 @@ async def detect_disease(
             detail=f"Image inference error: {str(e)}",
         )
 
+    # Corroborate with live backend-only peer-reviewed research (CrossRef / OpenAlex / ICAR)
+    if inference_result.get("is_plant") and inference_result.get("crop"):
+        try:
+            live_research = await search_agricultural_research(
+                crop=inference_result.get("crop", ""),
+                condition=inference_result.get("condition", ""),
+                scientific_name=inference_result.get("scientific_name"),
+                causal_agent=inference_result.get("causal_agent"),
+            )
+            if live_research:
+                inference_result["online_research"] = live_research
+        except Exception as e:
+            logger.warning(f"Online agricultural research fetch error: {e}")
+
     # 5. Save uploaded image to persistent directory
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     extension = Path(file.filename or "image.jpg").suffix or ".jpg"
@@ -450,4 +465,8 @@ async def detect_disease(
         image_quality=inference_result.get("image_quality"),
         crop_match=inference_result.get("crop_match"),
         crop_mismatch_warning=inference_result.get("crop_mismatch_warning"),
+        crop_support_status=inference_result.get("crop_support_status"),
+        identification_rationale=inference_result.get("identification_rationale"),
+        online_research=inference_result.get("online_research"),
+        visual_similarity=inference_result.get("visual_similarity"),
     )

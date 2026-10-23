@@ -79,6 +79,11 @@ const I18N = {
     expertWarningTitle: "Mandatory Expert Confirmation Notice",
     sourcesTitle: "Verified Agricultural Sources & Citations",
     qualityTitle: "Input Image Quality & Foliage Validation",
+    visualSimTitle: "Curated Visual Prototype Retrieval (Stage D)",
+    visualSimSub: "Corroborated against curated Indian plant pathology reference library",
+    researchTitle: "Peer-Reviewed Agricultural Literature & Research Evidence (CrossRef / OpenAlex)",
+    researchSub: "Backend-retrieved academic literature verifying pathogen etiology & IPM controls",
+    speciesTitle: "Plant Species Identification & Support Status (Stage B)",
     limitationsTitle: "Model Limitations & Advisory Disclaimer",
     limitationsText: "This AI diagnosis is an assistive decision-support platform powered by deep neural networks. Raw softmax probabilities reflect feature match, not definitive laboratory proof. In cases of severe or unfamiliar infestation, please verify with your local Krishi Vigyan Kendra (KVK) or State Horticulture Department before intensive spraying.",
     closeModal: "Close",
@@ -143,6 +148,11 @@ const I18N = {
     expertWarningTitle: "ಕಡ್ಡಾಯ ತಜ್ಞರ ದೃಢೀಕರಣ ಎಚ್ಚರಿಕೆ",
     sourcesTitle: "ವಿಶ್ವಾಸಾರ್ಹ ಕೃಷಿ ಸಂಶೋಧನಾ ಮೂಲಗಳು",
     qualityTitle: "ಚಿತ್ರದ ಗುಣಮಟ್ಟ ಮತ್ತು ಎಲೆ ತಪಾಸಣೆ",
+    visualSimTitle: "ದೃಶ್ಯ ಹೋಲಿಕೆ ತಪಾಸಣೆ (ಹಂತ ೪)",
+    visualSimSub: "ಭಾರತೀಯ ಕೃಷಿ ರೋಗ ಮಾದರಿ ಗ್ರಂಥಾಲಯದೊಂದಿಗೆ ದೃಢೀಕರಿಸಲಾಗಿದೆ",
+    researchTitle: "ಪರಿಶೀಲಿತ ಕೃಷಿ ಸಂಶೋಧನಾ ವರದಿಗಳು (CrossRef / OpenAlex)",
+    researchSub: "ರೋಗಕಾರಕ ಮತ್ತು ನಿಯಂತ್ರಣ ಕ್ರಮಗಳನ್ನು ದೃಢೀಕರಿಸುವ ವೈಜ್ಞಾನಿಕ ಪ್ರಬಂಧಗಳು",
+    speciesTitle: "ಸಸ್ಯ ಜಾತಿ ಗುರುತಿಸುವಿಕೆ ಮತ್ತು ಮಾದರಿ ವ್ಯಾಪ್ತಿ (ಹಂತ ೨)",
     limitationsTitle: "ಮಾದರಿ ಮಿತಿಗಳು ಮತ್ತು ಎಚ್ಚರಿಕೆ",
     limitationsText: "ಈ AI ತಪಾಸಣೆಯು ಕೇವಲ ರೈತರಿಗೆ ಸಹಾಯಕಾರಿ ತಂತ್ರಜ್ಞಾನವಾಗಿದೆ. ಗಂಭೀರ ರೋಗಬಾಧೆ ಕಂಡುಬಂದಲ್ಲಿ ನಿಮ್ಮ ಸಮೀಪದ ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರ (KVK) ಅಥವಾ ತೋಟಗಾರಿಕಾ ಅಧಿಕಾರಿಗಳನ್ನು ಸಂಪರ್ಕಿಸಿ ಸಲಹೆ ಪಡೆಯಿರಿ.",
     closeModal: "ಮುಚ್ಚಿ",
@@ -1199,6 +1209,138 @@ export const DiseaseDetection = () => {
             </div>
           )}
 
+          {/* Stage B: Plant Species Identification & Compatibility Badge */}
+          {result.identification_rationale && (
+            <div
+              style={{
+                marginBottom: "1.25rem",
+                padding: "0.9rem 1.15rem",
+                background: result.crop_support_status === "plantation_monograph_supported" ? "#fffbeb" : "#f0fdf4",
+                border: result.crop_support_status === "plantation_monograph_supported" ? "1px solid #fde68a" : "1px solid #bbf7d0",
+                borderRadius: "12px",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.75rem",
+              }}
+            >
+              <div
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  background: result.crop_support_status === "plantation_monograph_supported" ? "#fef3c7" : "#dcfce7",
+                  color: result.crop_support_status === "plantation_monograph_supported" ? "#b45309" : "#15803d",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  marginTop: "2px",
+                }}
+              >
+                <Leaf size={18} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.2rem" }}>
+                  <strong style={{ fontSize: "0.88rem", color: result.crop_support_status === "plantation_monograph_supported" ? "#92400e" : "#14532d" }}>
+                    {t.speciesTitle}:
+                  </strong>
+                  <span
+                    className="badge"
+                    style={{
+                      fontSize: "0.75rem",
+                      background: result.crop_support_status === "plantation_monograph_supported" ? "#fef3c7" : "#dcfce7",
+                      color: result.crop_support_status === "plantation_monograph_supported" ? "#92400e" : "#166534",
+                      border: "none",
+                      padding: "0.15rem 0.5rem",
+                    }}
+                  >
+                    {result.crop_support_status === "plantation_monograph_supported"
+                      ? "🌴 Monograph Supported (Vision Backbone OOD)"
+                      : "✅ Model Supported Crop"}
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: "0.84rem", color: "#475569", lineHeight: 1.5 }}>
+                  {result.identification_rationale}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Stage D: Curated Visual Prototype Retrieval & Cosine Similarity */}
+          {result.visual_similarity && result.visual_similarity.length > 0 && (
+            <div
+              style={{
+                marginBottom: "1.5rem",
+                padding: "1rem 1.25rem",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <Microscope size={18} color="#0284c7" />
+                  <strong style={{ fontSize: "0.92rem", color: "#0f172a" }}>
+                    {t.visualSimTitle}
+                  </strong>
+                </div>
+                <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                  {t.visualSimSub}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                {result.visual_similarity.map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "0.6rem 0.85rem",
+                      background: idx === 0 ? "#f8fafc" : "#ffffff",
+                      border: idx === 0 ? "1px solid #cbd5e1" : "1px solid #f1f5f9",
+                      borderRadius: "8px",
+                      flexWrap: "wrap",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                      <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#64748b" }}>
+                        #{idx + 1}
+                      </span>
+                      <div>
+                        <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                          {item.plant_family && <span>Family: {item.plant_family} • </span>}
+                          <span>{item.is_monocot ? "Monocot Foliage" : "Dicot Broadleaf"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span
+                        style={{
+                          fontSize: "0.85rem",
+                          fontWeight: 800,
+                          color: item.similarity_score >= 0.70 ? "#166534" : "#0284c7",
+                          background: item.similarity_score >= 0.70 ? "#dcfce7" : "#e0f2fe",
+                          padding: "0.2rem 0.6rem",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        {item.similarity_pct}% Cosine Match
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Bayesian Local Validation Trigger Button */}
           {(result.posterior_probability === null || result.posterior_probability === undefined) && !result.is_inconclusive && (
             <div
@@ -1442,6 +1584,95 @@ export const DiseaseDetection = () => {
                 : result.expert_warning || t.limitationsText}
             </div>
           </div>
+
+          {/* Stage E: Peer-Reviewed Agricultural Research & DOI Citations (CrossRef / OpenAlex) */}
+          {result.online_research && result.online_research.length > 0 && (
+            <div
+              style={{
+                padding: "1.1rem 1.25rem",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                marginBottom: "1rem",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <BookOpen size={18} color="#059669" />
+                  <strong style={{ fontSize: "0.92rem", color: "#0f172a" }}>
+                    {t.researchTitle}
+                  </strong>
+                </div>
+                <span style={{ fontSize: "0.76rem", color: "#64748b" }}>
+                  {t.researchSub}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {result.online_research.map((paper, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "0.75rem 0.95rem",
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      borderRadius: "8px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                      <strong style={{ fontSize: "0.86rem", color: "#14532d" }}>
+                        {paper.title}
+                      </strong>
+                      <span
+                        style={{
+                          fontSize: "0.7rem",
+                          fontWeight: 700,
+                          background: "#dcfce7",
+                          color: "#15803d",
+                          padding: "0.15rem 0.5rem",
+                          borderRadius: "4px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {paper.source_type || "Peer-Reviewed"}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: "0.78rem", color: "#475569", marginBottom: "0.35rem" }}>
+                      📖 <em>{paper.journal}</em> {paper.year ? `(${paper.year})` : ""}
+                    </div>
+
+                    {paper.relevance && (
+                      <p style={{ margin: "0 0 0.4rem 0", fontSize: "0.8rem", color: "#334155", lineHeight: 1.45 }}>
+                        {paper.relevance}
+                      </p>
+                    )}
+
+                    {paper.url && (
+                      <a
+                        href={paper.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontSize: "0.76rem",
+                          color: "#0284c7",
+                          fontWeight: 600,
+                          textDecoration: "underline",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.25rem",
+                        }}
+                      >
+                        {paper.doi ? `DOI: ${paper.doi}` : "View Verified Research Record"}
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Verified Sources & Citations */}
           {result.sources && result.sources.length > 0 && (

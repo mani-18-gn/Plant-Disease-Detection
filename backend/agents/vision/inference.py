@@ -36,6 +36,15 @@ from backend.agents.vision.advisory_db import (
     REF_ICAR_CPCRI,
     REF_UAS_BANGALORE,
 )
+from backend.agents.vision.similarity import (
+    extract_image_embedding,
+    warm_prototype_embeddings,
+    find_similar_reference_samples,
+    analyze_plant_species_and_compatibility,
+)
+from backend.agents.vision.web_research import (
+    INSTITUTIONAL_FALLBACKS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +89,7 @@ def get_multicrop_model():
 
 
 def warmup_vision_model():
-    """Warm up vision model at application startup to eliminate first-request latency."""
+    """Warm up vision model and reference prototype embeddings at application startup."""
     model, processor = get_multicrop_model()
     if model is not None and processor is not None:
         try:
@@ -88,7 +97,8 @@ def warmup_vision_model():
             inputs = processor(images=dummy_img, return_tensors="pt")
             with torch.no_grad():
                 _ = model(**inputs)
-            logger.info("Vision model warmed up and ready.")
+            warm_prototype_embeddings(model, processor)
+            logger.info("Vision model and prototype gallery warmed up and ready.")
         except Exception as e:
             logger.warning(f"Vision model warmup error: {e}")
 
@@ -271,7 +281,11 @@ def run_multicrop_vision_inference(
             "crop_mismatch_warning": "Uploaded photograph does not contain plant foliage.",
         }
 
-    # Stage D: Preprocess and run genuine neural network forward pass
+    # Stage D: Preprocess and extract 1280-d feature embedding
+    query_emb = extract_image_embedding(model, processor, image)
+    visual_similarities = find_similar_reference_samples(query_emb, top_k=3, model=model, processor=processor)
+
+    # Run genuine neural network forward pass
     inputs = processor(images=image, return_tensors="pt")
     with torch.no_grad():
         outputs = model(**inputs)
@@ -285,7 +299,7 @@ def run_multicrop_vision_inference(
     top_1_idx = int(top_indices[0].item())
     top_1_score = round(top_scores[0].item(), 4)
 
-    # Build top candidate list
+    # Build top candidate list from actual model output
     top_predictions = []
     for score, idx in zip(top_scores, top_indices):
         idx_val = int(idx.item())
@@ -301,125 +315,137 @@ def run_multicrop_vision_inference(
             "raw_class": raw_class_val,
         })
 
-    # Stage F: Retrieve matching verified disease knowledge
     advisory = get_diagnosis_advisory(class_index=top_1_idx)
     raw_class = model.config.id2label.get(top_1_idx) or model.config.id2label.get(str(top_1_idx)) or str(top_1_idx)
     predicted_crop = advisory.get("crop", "")
     predicted_condition = advisory.get("condition", "")
 
-    # Stage C: Species and Crop Block Consistency Check
+    # Stage B: Plant Identification, Species Verification & OOD Plantation Detection
+    species_info = analyze_plant_species_and_compatibility(
+        query_embedding=query_emb,
+        image=image,
+        predicted_38_crop=predicted_crop,
+        block_crop=block_crop,
+        model=model,
+        processor=processor,
+    )
+
+    # Corroborating online research from institutional monographs
+    default_research = []
+    for k_crop, v_res in INSTITUTIONAL_FALLBACKS.items():
+        if k_crop in predicted_crop.lower() or predicted_crop.lower() in k_crop:
+            default_research = list(v_res)
+            break
+
+    # If identified as Arecanut Palm (monocot frond morphology or embedding alignment),
+    # prevent false cross-species misdiagnosis (e.g. Strawberry Leaf Scorch artifact)
+    if species_info.get("is_arecanut_palm"):
+        areca_research = INSTITUTIONAL_FALLBACKS.get("arecanut", [])
+        return {
+            "predicted_disease": "Crop Not Supported by Visual Classifier (Arecanut Palm)",
+            "confidence": 0.0,
+            "inconclusive": True,
+            "crop": "Arecanut",
+            "crop_kn": "ಅಡಿಕೆ",
+            "scientific_name": "Areca catechu L.",
+            "condition": "Plantation Monograph: Fruit Rot (Koleroga/Mahali) & YLD",
+            "condition_kn": "ದೃಷ್ಟಿ ಮಾದರಿಯ ವ್ಯಾಪ್ತಿಯಿಂದ ಹೊರಗಿದೆ (ICAR-CPCRI ಸಲಹೆಗಳು)",
+            "affected_parts": ["Fronds", "Nuts", "Crown", "Trunk"],
+            "is_healthy": False,
+            "causal_agent": "Closed-set 38-class vision backbone only supports Solanaceae, Rosaceae, Cucurbits, Vitaceae, Poaceae",
+            "symptoms": (
+                "The uploaded image contains an Arecanut palm (Areca catechu L.) or related plantation palm. "
+                "The automated neural vision backbone is trained strictly on 38 benchmark crop-disease categories "
+                "(Tomato, Potato, Chilli, Corn, Grape, Apple, Citrus, Peach, Strawberry, etc.). "
+                "Arecanut palm fronds are monocotyledonous Arecaceae and out-of-distribution for this neural backbone. "
+                "To prevent false cross-species misdiagnosis (such as misidentifying arecanut frond necrosis as strawberry leaf scorch), "
+                "automated visual inference is marked inconclusive, and verified ICAR-CPCRI diagnostic keys are presented below."
+            ),
+            "symptoms_kn": (
+                "ಅಪ್‌ಲೋಡ್ ಮಾಡಿದ ಚಿತ್ರವು ಅಡಿಕೆ ಅಥವಾ ಸಂಬಂಧಿತ ತೋಟಗಾರಿಕಾ ಬೆಳೆಗೆ ಸೇರಿದ್ದಾಗಿದೆ. "
+                "ಈ AI ದೃಷ್ಟಿ ಮಾದರಿಯು ಕೇವಲ 38 ನಿಗದಿತ ಬೆಳೆಗಳಿಗೆ (ಟೊಮ್ಯಾಟೊ, ಆಲೂಗಡ್ಡೆ, ಮೆಣಸಿನಕಾಯಿ, ಇತ್ಯಾದಿ) ತರಬೇತಿ ಪಡೆದಿದೆ. "
+                "ತಪ್ಪಾದ ರೋಗ ನಿರ್ಧಾರವನ್ನು ತಡೆಯಲು (ಉದಾ: ಸ್ಟ್ರಾಬೆರಿ ರೋಗ ಎಂದು ತಪ್ಪಾಗಿ ಗುರುತಿಸುವುದು), ಇದನ್ನು ಅನಿಶ್ಚಿತ ಎಂದು ಗುರುತಿಸಿ ICAR-CPCRI ಕೃಷಿ ಸಲಹೆಗಳನ್ನು ಕೆಳಗೆ ನೀಡಲಾಗಿದೆ."
+            ),
+            "differential_diagnosis": (
+                "ICAR-CPCRI Primary Arecanut Pathologies:\n"
+                "1. Mahali / Koleroga (Fruit Rot - Phytophthora meadii): Water-soaked dark rotting at nut calyx, carpet-like premature green nut drop, white felty mold.\n"
+                "2. Yellow Leaf Disease (16SrXI-B Phytoplasma): Leaflets turn yellow from tips inward; tufted pencil-point crown; kernel turns dark and spongy.\n"
+                "3. Anabe / Foot Rot (Ganoderma lucidum): Lower trunk dark brown bleeding (0-1m), bracket conks at base, outer frond droop."
+            ),
+            "differential_diagnosis_kn": (
+                "ಪ್ರಮುಖ ಅಡಿಕೆ ರೋಗಗಳು:\n"
+                "1. ಕೊಳೆ ರೋಗ / ಮಹಾಲಿ: ಕಾಯಿಗಳ ತೊಟ್ಟು ಕೊಳೆತು ಉದುರುವುದು ಮತ್ತು ಬಿಳಿ ಶಿಲೀಂಧ್ರ.\n"
+                "2. ಹಳದಿ ಎಲೆ ರೋಗ: ಗರಿಗಳು ಹಳದಿಯಾಗುವುದು, ಶಿರಭಾಗ ಸಣ್ಣದಾಗುವುದು.\n"
+                "3. ಅಣಬೆ ರೋಗ (ಬುಡ ಕೊಳೆ): ಬುಡದಲ್ಲಿ ಕಂದು ದ್ರವ ಮತ್ತು ಗಟ್ಟಿಯಾದ ಅಣಬೆಗಳು ಮೂಡುವುದು."
+            ),
+            "favorable_conditions": "Heavy continuous southwest monsoon rains (June-August), dense valley shading, and waterlogged soils.",
+            "favorable_conditions_kn": "ನೈಋತ್ಯ ಮುಂಗಾರು ಮಳೆ, ತೇವಾಂಶ ಮತ್ತು ಬಸಿಗಾಲುವೆಗಳ ಕೊರತೆ.",
+            "preventive_practices": (
+                "1. Prophylactic 1% Bordeaux mixture spraying on nut bunches before southwest monsoon.\n"
+                "2. Cover nut bunches with 100-gauge polythene covers in high-rainfall tracts.\n"
+                "3. Provide 1-meter deep drainage channels between palm rows."
+            ),
+            "preventive_practices_kn": (
+                "1. ಮುಂಗಾರು ಮಳೆಗೆ ಮುನ್ನ ಗೊಂಚಲುಗಳಿಗೆ ಶೇ. 1ರ ಬೋರ್ಡೋ ಸಿಂಪಡಣೆ.\n"
+                "2. ಕಾಯಿ ಗೊಂಚಲುಗಳಿಗೆ ಪಾಲಿಥಿನ್ ಚೀಲ ಕಟ್ಟುವುದು.\n"
+                "3. ಸಾಲುಗಳ ನಡುವೆ 1 ಮೀಟರ್ ಆಳದ ಬಸಿಗಾಲುವೆಗಳನ್ನು ನಿರ್ಮಿಸುವುದು."
+            ),
+            "cultural_biological_management": "Apply 5 kg neem cake + 50 g Trichoderma harzianum per palm annually in June. Collect and burn rotting nuts.",
+            "cultural_biological_management_kn": "ಪ್ರತಿ ಮರಕ್ಕೆ 5 ಕೆಜಿ ಬೇವಿನ ಹಿಂಡಿ ಮತ್ತು 50 ಗ್ರಾಂ ಟ್ರೈಕೋಡರ್ಮಾ ನೀಡಿ. ಕೊಳೆತ ಅಡಿಕೆಗಳನ್ನು ಸುಟ್ಟುಹಾಕಿ.",
+            "chemical_management": (
+                "For Koleroga: Spray 1% Bordeaux mixture (1 kg CuSO4 + 1 kg lime / 100 L) with rosin soap sticker, "
+                "or apply Metalaxyl 8% + Mancozeb 64% WP @ 2.5 g/L. For Foot Rot: Root feed Calixin (Tridemorph) @ 2 mL/100 mL water."
+            ),
+            "chemical_management_kn": "ಶೇ. 1ರ ಬೋರ್ಡೋ ದ್ರಾವಣ ಅಥವಾ ರಿಡೋಮಿಲ್ ಗೋಲ್ಡ್ (2.5 ಗ್ರಾಂ/ಲೀ) ಸಿಂಪಡಣೆ. ಅಣಬೆ ರೋಗಕ್ಕೆ ಕ್ಯಾಲಿಕ್ಸಿನ್ ಬೇರು ಚಿಕಿತ್ಸೆ.",
+            "expert_warning": (
+                "CROP UNSUPPORTED BY VISION BACKBONE: Automated visual diagnosis suppressed to prevent cross-species error. "
+                "Physical consultation at ICAR-CPCRI Regional Station (Vittal/Kasaragod) or nearest KVK recommended."
+            ),
+            "expert_warning_kn": (
+                "ಬೆಳೆ ವ್ಯಾಪ್ತಿಯಿಂದ ಹೊರಗಿದೆ: ತಪ್ಪು ರೋಗ ನಿರ್ಧಾರ ತಡೆಯಲು AI ತಪಾಸಣೆ ತಡೆಹಿಡಿಯಲಾಗಿದೆ. ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರದ ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ."
+            ),
+            "management": "Spray 1% Bordeaux mixture prophylactically; ensure drainage channels and apply Trichoderma.",
+            "management_kn": "ಮುಂಗಾರಿಗೆ ಮುನ್ನ ಶೇ. 1 ಬೋರ್ಡೋ ಸಿಂಪಡಿಸಿ; ಬಸಿಗಾಲುವೆ ಮತ್ತು ಟ್ರೈಕೋಡರ್ಮಾ ಬಳಸಿ.",
+            "sources": [REF_ICAR_CPCRI, REF_UAS_BANGALORE],
+            "top_predictions": [],
+            "raw_class": "unsupported_arecanut",
+            "model_architecture": "ICAR-CPCRI Plantation Pathology Monograph",
+            "backend": "cpcri_advisory",
+            "image_quality": quality_info,
+            "is_plant": True,
+            "plant_coverage_pct": plausibility.get("plant_coverage_pct"),
+            "plausibility_note": plausibility.get("plausibility_note"),
+            "crop_match": False,
+            "crop_mismatch_warning": (
+                "Foliage morphology and visual embeddings indicate Arecanut Palm (Areca catechu L.). "
+                "Closed-set MobileNetV2 vision backbone is trained on 38 benchmark categories and does not support Areca catechu. "
+                "Suppressed spurious cross-species prediction; retrieved ICAR-CPCRI plantation monograph."
+            ),
+            "crop_support_status": "plantation_monograph_supported",
+            "identification_rationale": species_info.get("identification_rationale"),
+            "visual_similarity": visual_similarities,
+            "online_research": areca_research,
+        }
+
+    # Species and Crop Block Consistency Check for other crops
     crop_match = True
     crop_mismatch_warning = None
 
     if block_crop:
         b_crop_clean = block_crop.lower().strip()
         p_crop_clean = predicted_crop.lower().strip()
-
-        # Check if block crop is outside the 38-class vision benchmark (e.g. Arecanut, Rice, Sugarcane)
-        is_arecanut_block = any(term in b_crop_clean for term in ["areca", "adike", "supari", "ಅಡಿಕೆ"])
         is_rice_block = any(term in b_crop_clean for term in ["rice", "paddy", "bhatta", "ಭತ್ತ"])
 
-        if is_arecanut_block:
-            areca_monograph = EXTENDED_CROP_ADVISORY.get("mahali_koleroga", {})
-            return {
-                "predicted_disease": "Crop Not Supported by Visual Classifier (Arecanut Palm)",
-                "confidence": 0.0,
-                "inconclusive": True,
-                "crop": "Arecanut",
-                "crop_kn": "ಅಡಿಕೆ",
-                "scientific_name": "Areca catechu L.",
-                "condition": "Species Out-of-Distribution for 38-Class PlantVillage Model",
-                "condition_kn": "ದೃಷ್ಟಿ ಮಾದರಿಯ ವ್ಯಾಪ್ತಿಯಿಂದ ಹೊರಗಿದೆ",
-                "affected_parts": ["Fronds", "Nuts", "Crown", "Trunk"],
-                "is_healthy": False,
-                "causal_agent": "Closed-set 38-class vision backbone only supports Solanaceae, Rosaceae, Cucurbits, Vitaceae, Poaceae",
-                "symptoms": (
-                    "The uploaded image contains an Arecanut palm or related plantation crop. "
-                    "The automated neural vision backbone is trained strictly on 38 benchmark crop-disease categories "
-                    "(Tomato, Potato, Chilli, Corn, Grape, Apple, Citrus, Peach, Strawberry, etc.). "
-                    "Arecanut palm fronds are monocotyledonous Arecaceae and out-of-distribution for this neural backbone. "
-                    "To prevent false cross-species misdiagnosis (such as misidentifying arecanut frond necrosis as strawberry leaf scorch), "
-                    "automated visual inference is marked inconclusive, and verified ICAR-CPCRI diagnostic keys are presented below."
-                ),
-                "symptoms_kn": (
-                    "ಅಪ್‌ಲೋಡ್ ಮಾಡಿದ ಚಿತ್ರವು ಅಡಿಕೆ ಅಥವಾ ಸಂಬಂಧಿತ ತೋಟಗಾರಿಕಾ ಬೆಳೆಗೆ ಸೇರಿದ್ದಾಗಿದೆ. "
-                    "ಈ AI ದೃಷ್ಟಿ ಮಾದರಿಯು ಕೇವಲ 38 ನಿಗದಿತ ಬೆಳೆಗಳಿಗೆ (ಟೊಮ್ಯಾಟೊ, ಆಲೂಗಡ್ಡೆ, ಮೆಣಸಿನಕಾಯಿ, ಇತ್ಯಾದಿ) ತರಬೇತಿ ಪಡೆದಿದೆ. "
-                    "ತಪ್ಪಾದ ರೋಗ ನಿರ್ಧಾರವನ್ನು ತಡೆಯಲು (ಉದಾ: ಸ್ಟ್ರಾಬೆರಿ ರೋಗ ಎಂದು ತಪ್ಪಾಗಿ ಗುರುತಿಸುವುದು), ಇದನ್ನು ಅನಿಶ್ಚಿತ ಎಂದು ಗುರುತಿಸಿ ICAR-CPCRI ಕೃಷಿ ಸಲಹೆಗಳನ್ನು ಕೆಳಗೆ ನೀಡಲಾಗಿದೆ."
-                ),
-                "differential_diagnosis": (
-                    "ICAR-CPCRI Primary Arecanut Pathologies:\n"
-                    "1. Mahali / Koleroga (Fruit Rot - Phytophthora meadii): Water-soaked dark rotting at nut calyx, carpet-like premature green nut drop, white felty mold.\n"
-                    "2. Yellow Leaf Disease (16SrXI-B Phytoplasma): Leaflets turn yellow from tips inward; tufted pencil-point crown; kernel turns dark and spongy.\n"
-                    "3. Anabe / Foot Rot (Ganoderma lucidum): Lower trunk dark brown bleeding (0-1m), bracket conks at base, outer frond droop."
-                ),
-                "differential_diagnosis_kn": (
-                    "ಪ್ರಮುಖ ಅಡಿಕೆ ರೋಗಗಳು:\n"
-                    "1. ಕೊಳೆ ರೋಗ / ಮಹಾಲಿ: ಕಾಯಿಗಳ ತೊಟ್ಟು ಕೊಳೆತು ಉದುರುವುದು ಮತ್ತು ಬಿಳಿ ಶಿಲೀಂಧ್ರ.\n"
-                    "2. ಹಳದಿ ಎಲೆ ರೋಗ: ಗರಿಗಳು ಹಳದಿಯಾಗುವುದು, ಶಿರಭಾಗ ಸಣ್ಣದಾಗುವುದು.\n"
-                    "3. ಅಣಬೆ ರೋಗ (ಬುಡ ಕೊಳೆ): ಬುಡದಲ್ಲಿ ಕಂದು ದ್ರವ ಮತ್ತು ಗಟ್ಟಿಯಾದ ಅಣಬೆಗಳು ಮೂಡುವುದು."
-                ),
-                "favorable_conditions": "Heavy continuous southwest monsoon rains (June-August), dense valley shading, and waterlogged soils.",
-                "favorable_conditions_kn": "ನೈಋತ್ಯ ಮುಂಗಾರು ಮಳೆ, ತೇವಾಂಶ ಮತ್ತು ಬಸಿಗಾಲುವೆಗಳ ಕೊರತೆ.",
-                "preventive_practices": (
-                    "1. Prophylactic 1% Bordeaux mixture spraying on nut bunches before southwest monsoon.\n"
-                    "2. Cover nut bunches with 100-gauge polythene covers in high-rainfall tracts.\n"
-                    "3. Provide 1-meter deep drainage channels between palm rows."
-                ),
-                "preventive_practices_kn": (
-                    "1. ಮುಂಗಾರು ಮಳೆಗೆ ಮುನ್ನ ಗೊಂಚಲುಗಳಿಗೆ ಶೇ. 1ರ ಬೋರ್ಡೋ ಸಿಂಪಡಣೆ.\n"
-                    "2. ಕಾಯಿ ಗೊಂಚಲುಗಳಿಗೆ ಪಾಲಿಥಿನ್ ಚೀಲ ಕಟ್ಟುವುದು.\n"
-                    "3. ಸಾಲುಗಳ ನಡುವೆ 1 ಮೀಟರ್ ಆಳದ ಬಸಿಗಾಲುವೆಗಳನ್ನು ನಿರ್ಮಿಸುವುದು."
-                ),
-                "cultural_biological_management": "Apply 5 kg neem cake + 50 g Trichoderma harzianum per palm annually in June. Collect and burn rotting nuts.",
-                "cultural_biological_management_kn": "ಪ್ರತಿ ಮರಕ್ಕೆ 5 ಕೆಜಿ ಬೇವಿನ ಹಿಂಡಿ ಮತ್ತು 50 ಗ್ರಾಂ ಟ್ರೈಕೋಡರ್ಮಾ ನೀಡಿ. ಕೊಳೆತ ಅಡಿಕೆಗಳನ್ನು ಸುಟ್ಟುಹಾಕಿ.",
-                "chemical_management": (
-                    "For Koleroga: Spray 1% Bordeaux mixture (1 kg CuSO4 + 1 kg lime / 100 L) with rosin soap sticker, "
-                    "or apply Metalaxyl 8% + Mancozeb 64% WP @ 2.5 g/L. For Foot Rot: Root feed Calixin (Tridemorph) @ 2 mL/100 mL water."
-                ),
-                "chemical_management_kn": "ಶೇ. 1ರ ಬೋರ್ಡೋ ದ್ರಾವಣ ಅಥವಾ ರಿಡೋಮಿಲ್ ಗೋಲ್ಡ್ (2.5 ಗ್ರಾಂ/ಲೀ) ಸಿಂಪಡಣೆ. ಅಣಬೆ ರೋಗಕ್ಕೆ ಕ್ಯಾಲಿಕ್ಸಿನ್ ಬೇರು ಚಿಕಿತ್ಸೆ.",
-                "expert_warning": (
-                    "CROP UNSUPPORTED BY VISION BACKBONE: Automated visual diagnosis suppressed to prevent cross-species error. "
-                    "Physical consultation at ICAR-CPCRI Regional Station (Vittal/Kasaragod) or nearest KVK recommended."
-                ),
-                "expert_warning_kn": (
-                    "ಬೆಳೆ ವ್ಯಾಪ್ತಿಯಿಂದ ಹೊರಗಿದೆ: ತಪ್ಪು ರೋಗ ನಿರ್ಧಾರ ತಡೆಯಲು AI ತಪಾಸಣೆ ತಡೆಹಿಡಿಯಲಾಗಿದೆ. ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರದ ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ."
-                ),
-                "management": "Spray 1% Bordeaux mixture prophylactically; ensure drainage channels and apply Trichoderma.",
-                "management_kn": "ಮುಂಗಾರಿಗೆ ಮುನ್ನ ಶೇ. 1 ಬೋರ್ಡೋ ಸಿಂಪಡಿಸಿ; ಬಸಿಗಾಲುವೆ ಮತ್ತು ಟ್ರೈಕೋಡರ್ಮಾ ಬಳಸಿ.",
-                "sources": [REF_ICAR_CPCRI, REF_UAS_BANGALORE],
-                "top_predictions": [],
-                "raw_class": "unsupported_arecanut",
-                "model_architecture": "ICAR-CPCRI Plantation Pathology Monograph",
-                "backend": "cpcri_advisory",
-                "image_quality": quality_info,
-                "is_plant": True,
-                "plant_coverage_pct": plausibility.get("plant_coverage_pct"),
-                "plausibility_note": plausibility.get("plausibility_note"),
-                "crop_match": False,
-                "crop_mismatch_warning": (
-                    f"Target crop is '{block_crop}'. Closed-set MobileNetV2 vision backbone is trained on 38 benchmark categories "
-                    "and does not support Areca catechu. Suppressed spurious prediction; retrieved ICAR-CPCRI plantation monograph."
-                ),
-            }
-        elif is_rice_block and "rice" not in p_crop_clean:
+        if is_rice_block and "rice" not in p_crop_clean:
             crop_match = False
             crop_mismatch_warning = (
                 f"Selected Crop Block is '{block_crop}', but automated visual model classified foliage as '{predicted_crop}'. "
                 "For Rice blast or bacterial blight, please review our verified ICAR/TNAU paddy disease monograph."
             )
         elif p_crop_clean not in b_crop_clean and b_crop_clean not in p_crop_clean:
-            # Different crop than selected block (e.g., Tomato photo uploaded to a Potato block)
             crop_match = False
             crop_mismatch_warning = (
                 f"Notice: The detected crop is '{predicted_crop}', which differs from the selected block crop '{block_crop}'."
-            )
-    else:
-        # In auto-detect mode, if strawberry is predicted, warn about palm frond confusion
-        if predicted_crop == "Strawberry":
-            crop_mismatch_warning = (
-                "Notice: If this photograph is from an Arecanut palm or plantation crop, please select 'Arecanut Palm' "
-                "as Crop Target to view verified ICAR-CPCRI advisory guidelines. Closed-set vision models may misidentify "
-                "palm frond necrosis as strawberry leaf scorch."
             )
 
     # Uncertainty evaluation
@@ -472,6 +498,10 @@ def run_multicrop_vision_inference(
         "plausibility_note": plausibility.get("plausibility_note"),
         "crop_match": crop_match,
         "crop_mismatch_warning": crop_mismatch_warning,
+        "crop_support_status": species_info.get("crop_support_status", "supported"),
+        "identification_rationale": species_info.get("identification_rationale"),
+        "visual_similarity": visual_similarities,
+        "online_research": default_research,
     }
 
 
