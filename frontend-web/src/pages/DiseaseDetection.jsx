@@ -26,6 +26,9 @@ import {
   Eye,
   Microscope,
   Tag,
+  Smartphone,
+  SwitchCamera,
+  RotateCcw,
 } from "lucide-react";
 import { diseaseApi } from "../api/disease";
 import { useFarm } from "../context/FarmContext";
@@ -48,8 +51,14 @@ const I18N = {
     dropText: "Drag & drop plant leaf photograph here, or click to browse",
     fileFormats: "Supports JPG, JPEG, PNG, WEBP (Max 15MB)",
     startCamera: "Start Camera",
-    snapPhoto: "Capture Photo",
-    stopCamera: "Cancel Camera",
+    snapPhoto: "Capture Leaf Photo",
+    stopCamera: "Close Camera",
+    switchCamera: "Flip / Switch Camera",
+    nativeCamera: "Use Phone Camera (Ultra-Res)",
+    startingCamera: "Initializing Camera Stream...",
+    cameraActivePill: "Live Camera Active (HD)",
+    reticlePrompt: "Center diseased leaf inside this reticle",
+    cameraPermissionTip: "If video doesn't appear, click the lock or camera icon in your browser URL bar to allow camera access.",
     changePhoto: "Choose Different Photo",
     runDiagnosis: "Run Neural AI Diagnosis",
     analyzing: "Analyzing Leaf Pathology...",
@@ -117,8 +126,14 @@ const I18N = {
     dropText: "ಗಿಡದ ಎಲೆಯ ಫೋಟೋವನ್ನು ಇಲ್ಲಿಗೆ ಎಳೆಯಿರಿ ಅಥವಾ ಫೈಲ್ ಆರಿಸಿ",
     fileFormats: "JPG, JPEG, PNG, WEBP ಫೈಲ್ ಸಮ್ಮತ (ಗರಿಷ್ಠ 15MB)",
     startCamera: "ಕ್ಯಾಮೆರಾ ಆರಂಭಿಸಿ",
-    snapPhoto: "ಫೋಟೋ ತೆಗೆಯಿರಿ",
-    stopCamera: "ರದ್ದುಮಾಡಿ",
+    snapPhoto: "ಎಲೆಯ ಫೋಟೋ ತೆಗೆಯಿರಿ",
+    stopCamera: "ಕ್ಯಾಮೆರಾ ಮುಚ್ಚಿ",
+    switchCamera: "ಕ್ಯಾಮೆರಾ ಬದಲಿಸಿ (ಮುಂಭಾಗ/ಹಿಂಭಾಗ)",
+    nativeCamera: "ಮೊಬೈಲ್ ಕ್ಯಾಮೆರಾ ಬಳಸಿ (ಸ್ಪಷ್ಟ ಫೋಟೋ)",
+    startingCamera: "ಕ್ಯಾಮೆರಾ ಆರಂಭಿಸಲಾಗುತ್ತಿದೆ...",
+    cameraActivePill: "ಲೈವ್ ಕ್ಯಾಮೆರಾ ಸಕ್ರಿಯವಾಗಿದೆ (HD)",
+    reticlePrompt: "ರೋಗಪೀಡಿತ ಎಲೆಯನ್ನು ಈ ಚೌಕಟ್ಟಿನ ಮಧ್ಯದಲ್ಲಿ ಇರಿಸಿ",
+    cameraPermissionTip: "ಕ್ಯಾಮೆರಾ ಕಾಣಿಸದಿದ್ದರೆ, ಬ್ರೌಸರ್ URL ಬಾರ್‌ನಲ್ಲಿರುವ ಲಾಕ್ ಅಥವಾ ಕ್ಯಾಮೆರಾ ಐಕಾನ್ ಕ್ಲಿಕ್ ಮಾಡಿ ಅನುಮತಿ ನೀಡಿ.",
     changePhoto: "ಬೇರೆ ಫೋಟೋ ಬದಲಾಯಿಸಿ",
     runDiagnosis: "AI ರೋಗ ತಪಾಸಣೆ ನಡೆಸಿ",
     analyzing: "ಎಲೆಯ ರೋಗ ತಪಾಸಣೆ ನಡೆಯುತ್ತಿದೆ...",
@@ -181,6 +196,10 @@ export const DiseaseDetection = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [activeTab, setActiveTab] = useState("upload"); // "upload" | "camera"
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState("environment"); // "environment" | "user"
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+  const nativeCameraInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
   const [error, setError] = useState("");
@@ -202,6 +221,39 @@ export const DiseaseDetection = () => {
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+
+  // Detect if user has multiple camera devices (e.g. mobile front/back, or multiple webcams)
+  useEffect(() => {
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices
+        .enumerateDevices()
+        .then((devices) => {
+          const videoDevices = devices.filter((d) => d.kind === "videoinput");
+          if (videoDevices.length > 1) {
+            setHasMultipleCameras(true);
+          }
+        })
+        .catch((err) => console.warn("Failed to enumerate media devices:", err));
+    }
+  }, []);
+
+  // Bind media stream to video element whenever camera becomes active or facing changes
+  useEffect(() => {
+    if (isCameraActive && videoRef.current && streamRef.current) {
+      const video = videoRef.current;
+      video.srcObject = streamRef.current;
+      video.muted = true;
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("Video play error on mount:", err);
+        });
+      }
+    }
+  }, [isCameraActive, cameraFacingMode]);
 
   // Fetch block history whenever selectedCropBlock changes
   const fetchHistory = (blockId) => {
@@ -271,46 +323,139 @@ export const DiseaseDetection = () => {
     }
   }, [showKbModal, kbQuery, kbCropFilter, lang]);
 
-  const startCamera = async () => {
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {
+          console.warn("Track stop error:", e);
+        }
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+    setCameraLoading(false);
+  };
+
+  const startCamera = async (facing = cameraFacingMode) => {
     setError("");
+    setCameraLoading(true);
+
+    // Stop any existing stream first
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {
+          // ignore
+        }
+      });
+      streamRef.current = null;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError(
+        lang === "kn"
+          ? "ನಿಮ್ಮ ಬ್ರೌಸರ್‌ನಲ್ಲಿ ಲೈವ್ ಕ್ಯಾಮೆರಾ ಬೆಂಬಲವಿಲ್ಲ. ದಯವಿಟ್ಟು ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ ಅಥವಾ Chrome/Edge ಬಳಸಿ."
+          : "Live camera is not supported in this browser. Please use photo upload or native phone camera instead."
+      );
+      setCameraLoading(false);
+      return;
+    }
+
+    let stream = null;
+    // Attempt 1: High definition with ideal facing mode
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 },
+        },
         audio: false,
       });
+    } catch (e1) {
+      console.warn("Attempt 1 (HD ideal facing) failed, trying fallback 2:", e1.name, e1.message);
+      // Attempt 2: Basic with facing mode constraint
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing },
+          audio: false,
+        });
+      } catch (e2) {
+        console.warn("Attempt 2 (basic facing) failed, trying fallback 3 (any video device):", e2.name, e2.message);
+        // Attempt 3: Any video device available (desktop webcams, virtual cameras)
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        } catch (e3) {
+          console.error("All camera constraints failed:", e3);
+          let errText = t.cameraError;
+          if (e3.name === "NotAllowedError" || e3.name === "PermissionDeniedError") {
+            errText =
+              lang === "kn"
+                ? "ಕ್ಯಾಮೆರಾ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ. ಬ್ರೌಸರ್ URL ಬಾರ್‌ನಲ್ಲಿರುವ ಲಾಕ್ ಅಥವಾ ಕ್ಯಾಮೆರಾ ಐಕಾನ್ ಕ್ಲಿಕ್ ಮಾಡಿ ಅನುಮತಿ ನೀಡಿ."
+                : "Camera permission denied. Click the lock or camera icon in your browser address bar to allow camera access.";
+          } else if (e3.name === "NotFoundError" || e3.name === "DevicesNotFoundError") {
+            errText =
+              lang === "kn"
+                ? "ಯಾವುದೇ ಕ್ಯಾಮೆರಾ ಸಾಧನ ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ವೆಬ್‌ಕ್ಯಾಮ್ ಸಂಪರ್ಕಿಸಿ ಅಥವಾ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ."
+                : "No camera device found on this system. Please connect a webcam or upload a photo instead.";
+          }
+          setError(errText);
+          setIsCameraActive(false);
+          setCameraLoading(false);
+          return;
+        }
+      }
+    }
+
+    if (stream) {
       streamRef.current = stream;
+      setIsCameraActive(true);
+      setCameraLoading(false);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        videoRef.current.muted = true;
+        videoRef.current.play().catch((err) => console.warn("Video play error on start:", err));
       }
-      setIsCameraActive(true);
-    } catch (err) {
-      console.error("Camera access error:", err);
-      setError(t.cameraError);
-      setIsCameraActive(false);
     }
   };
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setIsCameraActive(false);
+  const handleToggleFacingMode = () => {
+    const nextMode = cameraFacingMode === "environment" ? "user" : "environment";
+    setCameraFacingMode(nextMode);
+    startCamera(nextMode);
   };
 
   const handleCapturePhoto = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    if (cameraFacingMode === "user") {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0, width, height);
 
     canvas.toBlob(
       (blob) => {
-        if (!blob) return;
+        if (!blob) {
+          setError("Failed to capture image frame. Please try again.");
+          return;
+        }
         const file = new File([blob], `leaf_capture_${Date.now()}.jpg`, { type: "image/jpeg" });
         setSelectedFile(file);
         setPreviewUrl(URL.createObjectURL(blob));
@@ -320,7 +465,7 @@ export const DiseaseDetection = () => {
         setActiveTab("upload");
       },
       "image/jpeg",
-      0.92
+      0.95
     );
   };
 
@@ -773,7 +918,7 @@ export const DiseaseDetection = () => {
             style={{ fontSize: "0.9rem", padding: "0.5rem 1rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
             onClick={() => {
               setActiveTab("camera");
-              startCamera();
+              startCamera(cameraFacingMode);
             }}
           >
             <Camera size={16} />
@@ -800,61 +945,326 @@ export const DiseaseDetection = () => {
           </div>
         )}
 
-        {/* Live Camera View */}
-        {activeTab === "camera" && isCameraActive && (
+        {/* Live Camera View Tab */}
+        {activeTab === "camera" && (
           <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-            <div
-              style={{
-                position: "relative",
-                maxWidth: "600px",
-                margin: "0 auto",
-                borderRadius: "14px",
-                overflow: "hidden",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                background: "#000000",
+            {/* Hidden Native Phone Camera File Input */}
+            <input
+              ref={nativeCameraInputRef}
+              id="mobile-native-camera"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                handleFileChange(e);
+                stopCamera();
+                setActiveTab("upload");
               }}
-            >
-              <video ref={videoRef} autoPlay playsInline style={{ width: "100%", maxHeight: "420px", display: "block" }} />
-              {/* Aiming Reticle Overlay */}
+            />
+
+            {/* Camera Loading Splash */}
+            {cameraLoading && (
               <div
                 style={{
-                  position: "absolute",
-                  top: "20%",
-                  left: "20%",
-                  right: "20%",
-                  bottom: "20%",
-                  border: "2px dashed rgba(255,255,255,0.7)",
-                  borderRadius: "12px",
-                  pointerEvents: "none",
-                }}
-              />
-            </div>
-            <div style={{ marginTop: "1rem", display: "flex", justifyContent: "center", gap: "0.75rem" }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ padding: "0.75rem 1.75rem", fontSize: "1rem" }}
-                onClick={handleCapturePhoto}
-              >
-                <Camera size={20} />
-                {t.snapPhoto}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  stopCamera();
-                  setActiveTab("upload");
+                  padding: "3rem 1.5rem",
+                  background: "#0f172a",
+                  borderRadius: "16px",
+                  color: "#ffffff",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
                 }}
               >
-                {t.stopCamera}
-              </button>
-            </div>
+                <RefreshCw size={36} className="spin" style={{ color: "#22c55e", animation: "spin 1s linear infinite" }} />
+                <div style={{ fontWeight: 600, fontSize: "1.05rem" }}>{t.startingCamera}</div>
+                <p style={{ fontSize: "0.85rem", color: "#94a3b8", maxWidth: "420px", margin: 0, lineHeight: 1.5 }}>
+                  {t.cameraPermissionTip}
+                </p>
+              </div>
+            )}
+
+            {/* Active Live Video Stream */}
+            {!cameraLoading && isCameraActive && (
+              <div>
+                <div
+                  style={{
+                    position: "relative",
+                    maxWidth: "680px",
+                    margin: "0 auto",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    boxShadow: "0 10px 25px -5px rgba(0,0,0,0.3)",
+                    background: "#000000",
+                    border: "2px solid #22c55e",
+                  }}
+                >
+                  {/* Live Status Pill */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "12px",
+                      left: "12px",
+                      background: "rgba(0, 0, 0, 0.75)",
+                      backdropFilter: "blur(4px)",
+                      color: "#4ade80",
+                      padding: "0.35rem 0.75rem",
+                      borderRadius: "999px",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.45rem",
+                      zIndex: 10,
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: "8px",
+                        height: "8px",
+                        borderRadius: "50%",
+                        background: "#22c55e",
+                        display: "inline-block",
+                        boxShadow: "0 0 8px #22c55e",
+                      }}
+                    />
+                    {t.cameraActivePill}
+                    <span style={{ color: "#94a3b8", fontWeight: 400 }}>
+                      ({cameraFacingMode === "user" ? "Front" : "Rear"})
+                    </span>
+                  </div>
+
+                  {/* Video Stream Element */}
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    onLoadedMetadata={() => {
+                      if (videoRef.current) {
+                        videoRef.current.play().catch((err) => console.warn("Video play error on loadedmetadata:", err));
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      maxHeight: "460px",
+                      display: "block",
+                      objectFit: "cover",
+                      transform: cameraFacingMode === "user" ? "scaleX(-1)" : "none",
+                    }}
+                  />
+
+                  {/* Aiming Reticle / Focus Brackets Overlay */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "15%",
+                      left: "15%",
+                      right: "15%",
+                      bottom: "15%",
+                      border: "2px dashed rgba(255,255,255,0.75)",
+                      borderRadius: "16px",
+                      pointerEvents: "none",
+                      boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.25)",
+                      display: "flex",
+                      alignItems: "flex-end",
+                      justifyContent: "center",
+                      paddingBottom: "0.75rem",
+                    }}
+                  >
+                    <span
+                      style={{
+                        background: "rgba(0,0,0,0.65)",
+                        color: "#ffffff",
+                        padding: "0.25rem 0.65rem",
+                        borderRadius: "6px",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {t.reticlePrompt}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Camera Control Action Buttons */}
+                <div
+                  style={{
+                    marginTop: "1.25rem",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "0.75rem",
+                  }}
+                >
+                  {/* Main Snap Photo Button */}
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{
+                      padding: "0.85rem 2rem",
+                      fontSize: "1.05rem",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.6rem",
+                      borderRadius: "12px",
+                      boxShadow: "0 4px 14px rgba(22, 163, 74, 0.4)",
+                    }}
+                    onClick={handleCapturePhoto}
+                  >
+                    <Camera size={22} />
+                    {t.snapPhoto}
+                  </button>
+
+                  {/* Flip / Switch Camera Button */}
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      padding: "0.85rem 1.25rem",
+                      fontSize: "0.95rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      borderRadius: "12px",
+                    }}
+                    onClick={handleToggleFacingMode}
+                    title={t.switchCamera}
+                  >
+                    <SwitchCamera size={18} />
+                    {t.switchCamera}
+                  </button>
+
+                  {/* Native Phone Camera Option */}
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      padding: "0.85rem 1.25rem",
+                      fontSize: "0.95rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      borderRadius: "12px",
+                      color: "#0369a1",
+                      borderColor: "#bae6fd",
+                      background: "#f0f9ff",
+                    }}
+                    onClick={() => nativeCameraInputRef.current && nativeCameraInputRef.current.click()}
+                    title={t.nativeCamera}
+                  >
+                    <Smartphone size={18} />
+                    {t.nativeCamera}
+                  </button>
+
+                  {/* Stop / Cancel Camera Button */}
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      padding: "0.85rem 1.25rem",
+                      fontSize: "0.95rem",
+                      borderRadius: "12px",
+                    }}
+                    onClick={() => {
+                      stopCamera();
+                      setActiveTab("upload");
+                    }}
+                  >
+                    <XCircle size={18} />
+                    {t.stopCamera}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Inactive Camera State */}
+            {!cameraLoading && !isCameraActive && (
+              <div
+                style={{
+                  border: "2px dashed #cbd5e1",
+                  borderRadius: "16px",
+                  padding: "3rem 1.5rem",
+                  textAlign: "center",
+                  background: "#f8fafc",
+                }}
+              >
+                <div
+                  style={{
+                    width: "68px",
+                    height: "68px",
+                    borderRadius: "50%",
+                    background: "#ecfdf5",
+                    color: "#16a34a",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 1.25rem auto",
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
+                  }}
+                >
+                  <Camera size={34} />
+                </div>
+                <h4 style={{ margin: "0 0 0.5rem 0", color: "#1e293b", fontSize: "1.15rem", fontWeight: 700 }}>
+                  {lang === "kn" ? "ಲೈವ್ ಕ್ಯಾಮೆರಾ ವ್ಯೂಫೈಂಡರ್" : "Live Camera Viewfinder"}
+                </h4>
+                <p style={{ margin: "0 auto 1.5rem auto", color: "#64748b", fontSize: "0.9rem", maxWidth: "440px" }}>
+                  {lang === "kn"
+                    ? "ನಿಮ್ಮ ತೋಟದ ಎಲೆಯನ್ನು ನೇರವಾಗಿ ಕ್ಯಾಮೆರಾ ಮುಂದೆ ಹಿಡಿದು ಸ್ಪಷ್ಟ ರೋಗ ಲಕ್ಷಣಗಳನ್ನು ಸೆರೆಹಿಡಿಯಿರಿ."
+                    : "Point your device camera directly at the affected crop leaf to capture clear pathology symptoms."}
+                </p>
+
+                <div style={{ display: "flex", justifyContent: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{
+                      padding: "0.85rem 1.75rem",
+                      fontSize: "1rem",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      borderRadius: "12px",
+                    }}
+                    onClick={() => startCamera(cameraFacingMode)}
+                  >
+                    <Camera size={20} />
+                    {t.startCamera}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      padding: "0.85rem 1.5rem",
+                      fontSize: "0.95rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      borderRadius: "12px",
+                      color: "#0369a1",
+                      borderColor: "#bae6fd",
+                      background: "#ffffff",
+                    }}
+                    onClick={() => nativeCameraInputRef.current && nativeCameraInputRef.current.click()}
+                  >
+                    <Smartphone size={18} />
+                    {t.nativeCamera}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* Upload / Preview View */}
-        {(activeTab === "upload" || !isCameraActive) && (
+        {activeTab === "upload" && (
           <form onSubmit={handleUpload}>
             <div
               style={{
