@@ -1,0 +1,23 @@
+============================================================
+TRAINING COMPLETE -- BEST CHECKPOINT SUMMARY
+   Saved Checkpoint File: C:\major project\Areca-Agent\backend\agents\vision\weights\arecanut_cnn.pt
+   File Size: 9.99 MB
+   Best Validation Macro F1: 0.9862
+============================================================
+
+=== PER-CLASS EVALUATION REPORT (BEST MODEL) ===
+                     precision    recall  f1-score   support
+
+          bud_borer     0.9167    0.9167    0.9167        36
+       healthy_foot     1.0000    1.0000    1.0000        13
+       healthy_leaf     0.9679    0.9934    0.9805       152
+        healthy_nut     0.9979    0.9979    0.9979       472
+      healthy_trunk     1.0000    0.9972    0.9986       359
+    mahali_koleroga     1.0000    0.9953    0.9977       641
+      stem_cracking     0.9926    1.0000    0.9963       135
+      stem_bleeding     1.0000    1.0000    1.0000        38
+yellow_leaf_disease     0.9892    0.9865    0.9878       370
+
+           accuracy                         0.9937      2216
+          macro avg     0.9849    0.9874    0.9862      2216
+       weighted avg     0.9937    0.9937    0.9937      2216

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "areca-agent-backend"
+version = "0.1.0"
+description = "FastAPI backend for ArecaAgent multi-agent system"
+authors = [{ name = "ArecaAgent Team" }]
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "pydantic",
+    "pydantic-settings",
+    "psycopg2-binary",
+    "pyjwt",
+    "passlib",
+    "python-dotenv",
+    "httpx"
+]

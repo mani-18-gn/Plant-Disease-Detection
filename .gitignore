@@ -1,0 +1,53 @@
+# Python Virtual Environments (Root-anchored to avoid backend/db/models/env collision)
+/.env/
+/env/
+/ENV/
+/venv/
+/.venv/
+
+# Python Cache & Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Database & Storage
+*.sqlite3
+*.db
+/data/
+backend/data/uploads/
+backend/db/migrations/versions/*.pyc
+
+# ML Model Checkpoints & Weights
+backend/agents/vision/weights/*
+!backend/agents/vision/weights/multi_crop_mobilenetv2/
+*.pt
+*.pth
+*.h5
+
+# Environment & API Keys
+.env
+backend/.env
+.env.local
+*.pem
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Node / Frontend
+node_modules/
+dist/
+/dist/
+frontend-web/dist/
+/build/
+.next/
+frontend-web/.env
+
+# Application Logs (Root-anchored to avoid backend/db/models/logs collision)
+*.log
+/logs/

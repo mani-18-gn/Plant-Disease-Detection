@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: areca_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: areca_user
+      POSTGRES_PASSWORD: areca_pass
+      POSTGRES_DB: areca_agent_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres_init.sql:/docker-entrypoint-initdb.d/postgres_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U areca_user -d areca_agent_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: areca_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://areca_user:areca_pass@postgres:5432/areca_agent_db
+      - SECRET_KEY=development-secret-key
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+volumes:
+  postgres_data:
