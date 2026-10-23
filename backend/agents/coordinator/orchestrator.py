@@ -20,6 +20,7 @@ from backend.agents.market.data_gov_client import fetch_live_market_prices
 from backend.agents.advisory.cache import get_cached_advisory
 from backend.agents.advisory.gemini_client import generate_gemini_advisory
 from backend.db.models.logs.advisory import Advisory, AdvisoryPriority, AdvisorySource
+from backend.db.models.market.market_price import MarketPrice
 from backend.agents.coordinator.weights import compute_situation_score
 from backend.agents.notifying.notifications import dispatch_advisory_notifications
 

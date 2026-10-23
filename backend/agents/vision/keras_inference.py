@@ -25,7 +25,10 @@ import numpy as np
 # Suppress verbose TensorFlow logs & oneDNN deadlock during module import
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-import tensorflow as tf
+try:
+    import tensorflow as tf
+except ImportError:
+    tf = None
 
 from backend.agents.vision.preprocess import preprocess_image_keras
 
@@ -51,6 +54,8 @@ _keras_model_cache = None
 def get_keras_model():
     """Lazy load and cache Keras MobileNetV2 model weights."""
     global _keras_model_cache
+    if tf is None:
+        return None
     if _keras_model_cache is not None:
         return _keras_model_cache
 

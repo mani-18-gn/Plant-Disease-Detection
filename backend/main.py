@@ -1,7 +1,9 @@
 import logging
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from backend.config import settings
 from backend.db.session import engine
 from backend.db.base import Base
@@ -116,3 +118,10 @@ app.include_router(advisory_router, prefix=api_prefix)
 app.include_router(coordinator_router, prefix=api_prefix)
 app.include_router(learning_router, prefix=api_prefix)
 app.include_router(notifying_router, prefix=api_prefix)
+
+# Mount Static Uploads directory for image access
+uploads_dir = Path(__file__).resolve().parent / "data" / "uploads"
+uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+app.mount("/api/v1/uploads", StaticFiles(directory=str(uploads_dir)), name="api_uploads")
+
