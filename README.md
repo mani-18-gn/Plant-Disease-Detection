@@ -25,7 +25,14 @@ An end-to-end, multi-crop plant disease intelligence and agricultural management
      - **Bell Pepper, Peach, Strawberry, Cherry, and more**.
    - Dual-mode inference: High-performance local neural model with zero-configuration fallback.
 
-2. **Bayesian Diagnosis & Advisory Synthesis**:
+2. **Google-Powered Multimodal AI & Grounded Diagnosis (Gemini 2.5 Flash)**:
+   - Multimodal plant pathology diagnosis powered by the official `google-genai` SDK (`gemini-2.5-flash`, with fallback to `gemini-2.0-flash` and `gemini-1.5-flash`).
+   - Non-plant and foliage plausibility checks: automatically rejects non-plant subjects safely.
+   - Grounded agricultural research: integrates Google Search grounding metadata along with ICAR and University extension monographs.
+   - Dual-engine co-existence: operates independently alongside the local MobileNetV2 neural vision model for cross-verification.
+   - Dedicated REST APIs: `POST /api/diagnose` and `GET /api/diagnose/status`.
+
+3. **Bayesian Diagnosis & Advisory Synthesis**:
    - Integrates neural visual confidence with environmental parameters (temperature, humidity, rainfall).
    - Generates actionable, evidence-based chemical, organic, and cultural treatment recommendations with dosage guidelines.
 
@@ -81,6 +88,10 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -r backend/requirements.txt
+
+# Configure environment variables (optional for Google AI multimodal pathology)
+cp .env.example .env
+# Edit .env and set GOOGLE_API_KEY=your-api-key-here
 
 # Start FastAPI server
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload

@@ -33,6 +33,7 @@ from backend.agents.vision.advisory_db import (
     get_all_supported_crops,
 )
 from backend.agents.vision.web_research import search_agricultural_research
+from backend.agents.diagnosis.google_ai import diagnose_plant_with_google_ai, is_google_ai_configured
 
 logger = logging.getLogger(__name__)
 
@@ -400,6 +401,8 @@ async def detect_disease(
     file: UploadFile = File(...),
     crop_block_id: Optional[uuid.UUID] = Form(None),
     crop_type: Optional[str] = Form(None),
+    symptoms: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
@@ -525,7 +528,24 @@ async def detect_disease(
         except Exception as e:
             logger.warning(f"Online agricultural research fetch error: {e}")
 
-    # 5. Save uploaded image to persistent directory
+    # 5. Run Google-Powered AI Multimodal Pathology Diagnosis
+    google_ai_diagnosis = None
+    try:
+        google_ai_diagnosis = await diagnose_plant_with_google_ai(
+            image_bytes=image_bytes,
+            crop_hint=block_crop,
+            user_symptoms=symptoms,
+            location=location,
+        )
+    except Exception as e:
+        logger.warning(f"Google AI diagnosis background execution error: {e}")
+        google_ai_diagnosis = {
+            "status": "error",
+            "error": "Google AI diagnosis was not completed.",
+            "diagnosis": None,
+        }
+
+    # 6. Save uploaded image to persistent directory
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     extension = Path(file.filename or "image.jpg").suffix or ".jpg"
     unique_filename = f"{uuid.uuid4()}{extension}"
@@ -539,7 +559,7 @@ async def detect_disease(
 
     rel_image_path = f"uploads/{unique_filename}"
 
-    # 6. Insert record into database only if crop_block_id is provided
+    # 7. Insert record into database only if crop_block_id is provided
     detection_id = uuid.uuid4()
     detected_at = datetime.now(timezone.utc)
     if crop_block_id is not None:
@@ -558,7 +578,7 @@ async def detect_disease(
         detection_id = uuid.UUID(str(detection.id))
         detected_at = detection.detected_at
 
-    # 7. Construct complete response
+    # 8. Construct complete response
     return DiseaseDetectionResponse(
         id=detection_id,
         crop_block_id=crop_block_id,
@@ -611,4 +631,6 @@ async def detect_disease(
         dataset_source=inference_result.get("dataset_source", "Hugging Face mohanty/PlantVillage (38 Classes, CC-BY-SA 3.0)"),
         diagnostic_disclaimer=inference_result.get("diagnostic_disclaimer"),
         next_steps=inference_result.get("next_steps"),
+        google_ai_diagnosis=google_ai_diagnosis,
+
     )

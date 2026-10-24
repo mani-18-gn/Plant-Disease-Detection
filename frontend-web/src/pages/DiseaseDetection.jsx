@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { diseaseApi } from "../api/disease";
 import { useFarm } from "../context/FarmContext";
+import { GoogleAIDiagnosis } from "../components/GoogleAIDiagnosis";
 
 // Bilingual translations dictionary
 const I18N = {
@@ -198,6 +199,10 @@ export const DiseaseDetection = () => {
   const [showCatalogModal, setShowCatalogModal] = useState(false);
   const [showKbModal, setShowKbModal] = useState(false);
   const [visionStatus, setVisionStatus] = useState(null);
+  const [googleAiStatus, setGoogleAiStatus] = useState(null);
+  const [userSymptoms, setUserSymptoms] = useState("");
+  const [userLocation, setUserLocation] = useState("");
+  const [showOptionalContext, setShowOptionalContext] = useState(false);
   const [sampleImages, setSampleImages] = useState([]);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -271,12 +276,17 @@ export const DiseaseDetection = () => {
     }
   }, [selectedCropBlock?.id]);
 
-  // Load vision status and benchmark sample images on mount
+  // Load vision status, Google AI status, and benchmark sample images on mount
   useEffect(() => {
     diseaseApi
       .getVisionStatus()
       .then((res) => setVisionStatus(res.data || res))
       .catch((err) => console.warn("Vision status check failed:", err.message));
+
+    diseaseApi
+      .getGoogleAIStatus()
+      .then((res) => setGoogleAiStatus(res.data || res))
+      .catch((err) => console.warn("Google AI status check failed:", err.message));
 
     diseaseApi
       .getSampleImages()
@@ -524,7 +534,17 @@ export const DiseaseDetection = () => {
       // In auto mode, pass null cropContext so backend vision models classify without species bias
       const cropContext = targetCrop !== "auto" ? targetCrop : null;
 
+<<<<<<< HEAD
       const response = await diseaseApi.detectDisease(blockId, file, cropContext);
+=======
+      const response = await diseaseApi.detectDisease(
+        blockId,
+        selectedFile,
+        cropContext,
+        userSymptoms?.trim() || null,
+        userLocation?.trim() || null
+      );
+>>>>>>> 323d586 (feat: integrate Google Gen AI multimodal diagnosis and grounded search with dual-engine UI)
       const detectionData = response.data || response;
       setResult(detectionData);
       if (blockId) {
@@ -603,7 +623,22 @@ export const DiseaseDetection = () => {
                   fontWeight: 600,
                 }}
               >
-                ● {visionStatus.status === "ready" ? "Neural Model Loaded (38 Classes)" : "Model Offline"}
+                ● {visionStatus.status === "ready" ? "Neural Edge Model (38 Classes)" : "Model Offline"}
+              </span>
+            )}
+            {googleAiStatus && (
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.2rem 0.55rem",
+                  borderRadius: "999px",
+                  background: googleAiStatus.is_configured ? "#eff6ff" : "#f8fafc",
+                  color: googleAiStatus.is_configured ? "#1d4ed8" : "#64748b",
+                  border: googleAiStatus.is_configured ? "1px solid #bfdbfe" : "1px dashed #cbd5e1",
+                  fontWeight: 600,
+                }}
+              >
+                ✨ {googleAiStatus.is_configured ? "Google AI (Multimodal + Search): Ready" : "Google AI: Key Pending (.env)"}
               </span>
             )}
           </div>
@@ -1114,6 +1149,117 @@ export const DiseaseDetection = () => {
               )}
             </div>
 
+            {/* Optional Field Symptoms & Location Context (For Google AI Multimodal Engine) */}
+            <div
+              style={{
+                marginBottom: "1.25rem",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "10px",
+                padding: "0.75rem 1rem",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowOptionalContext(!showOptionalContext)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                  color: "#475569",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                  <Sparkles size={14} color="#6366f1" />
+                  {lang === "kn"
+                    ? "ಹೆಚ್ಚುವರಿ ಕ್ಷೇತ್ರ ಲಕ್ಷಣಗಳು & ಪ್ರದೇಶ (ಐಚ್ಛಿಕ — Google AI ಗಾಗಿ)"
+                    : "Field Symptoms & Location (Optional — Enhances Google AI Analysis)"}
+                </span>
+                <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                  {showOptionalContext ? "▲ Hide" : "▼ Add Context"}
+                </span>
+              </button>
+
+              {showOptionalContext && (
+                <div
+                  style={{
+                    marginTop: "0.75rem",
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "0.75rem",
+                  }}
+                >
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        color: "#475569",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      {lang === "kn" ? "ಕಂಡುಬಂದ ಲಕ್ಷಣಗಳು:" : "Visible Symptoms / Context:"}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={
+                        lang === "kn"
+                          ? "ಉದಾ: ಹಳದಿ ವೃತ್ತಗಳು, ಎಲೆ ಕಪ್ಪಾಗುವುದು"
+                          : "e.g. Yellow halos, concentric rings, leaf spots"
+                      }
+                      value={userSymptoms}
+                      onChange={(e) => setUserSymptoms(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "0.45rem 0.65rem",
+                        borderRadius: "6px",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "0.82rem",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        color: "#475569",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      {lang === "kn" ? "ತೋಟದ ಸ್ಥಳ / ರಾಜ್ಯ:" : "Farm Location / State:"}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={
+                        lang === "kn" ? "ಉದಾ: ಕರ್ನಾಟಕ, ಶಿವಮೊಗ್ಗ" : "e.g. Karnataka, India"
+                      }
+                      value={userLocation}
+                      onChange={(e) => setUserLocation(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "0.45rem 0.65rem",
+                        borderRadius: "6px",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "0.82rem",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               type="submit"
               className="btn btn-primary"
@@ -1418,77 +1564,85 @@ export const DiseaseDetection = () => {
 
       {/* Diagnostic Result Section */}
       {result && !loading && (
-        result.is_plant === false ? (
-          <div
-            className="card"
-            style={{
-              padding: "2rem",
-              border: "2px solid #f87171",
-              background: "#fff1f2",
-              borderRadius: "16px",
-              boxShadow: "0 8px 24px rgba(239, 68, 68, 0.12)",
-              marginBottom: "2rem",
-              textAlign: "center",
-            }}
-          >
+        <>
+          {/* Google AI Multimodal Pathology & Web Grounding Engine */}
+          <GoogleAIDiagnosis
+            data={result.google_ai_diagnosis}
+            localModelData={result}
+            lang={lang}
+          />
+
+          {result.is_plant === false ? (
             <div
+              className="card"
               style={{
-                width: "68px",
-                height: "68px",
-                borderRadius: "50%",
-                background: "#fee2e2",
-                color: "#dc2626",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 1.25rem auto",
+                padding: "2rem",
+                border: "2px solid #f87171",
+                background: "#fff1f2",
+                borderRadius: "16px",
+                boxShadow: "0 8px 24px rgba(239, 68, 68, 0.12)",
+                marginBottom: "2rem",
+                textAlign: "center",
               }}
             >
-              <XCircle size={36} />
-            </div>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#991b1b", marginBottom: "0.5rem" }}>
-              {lang === "kn"
-                ? "ಈ ಚಿತ್ರವು ಕೃಷಿ ಬೆಳೆಯನ್ನು ತೋರಿಸುತ್ತಿಲ್ಲ"
-                : "This image does not appear to show a crop."}
-            </h2>
-            <p style={{ fontSize: "1rem", color: "#b91c1c", maxWidth: "650px", margin: "0 auto 1.25rem auto", lineHeight: 1.6 }}>
-              {lang === "kn" && result.symptoms_kn ? result.symptoms_kn : result.symptoms}
-            </p>
-            {result.plausibility_note && (
               <div
                 style={{
-                  display: "inline-block",
-                  padding: "0.5rem 1rem",
-                  background: "#ffffff",
-                  border: "1px solid #fca5a5",
-                  borderRadius: "8px",
-                  fontSize: "0.85rem",
-                  color: "#7f1d1d",
-                  fontWeight: 600,
-                  marginBottom: "1rem",
+                  width: "68px",
+                  height: "68px",
+                  borderRadius: "50%",
+                  background: "#fee2e2",
+                  color: "#dc2626",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 1.25rem auto",
                 }}
               >
-                ⚠️ {result.plausibility_note}
+                <XCircle size={36} />
               </div>
-            )}
-            <div style={{ marginTop: "0.75rem" }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ background: "#dc2626", borderColor: "#dc2626", padding: "0.6rem 1.5rem" }}
-                onClick={() => {
-                  setResult(null);
-                  setSelectedFile(null);
-                  setPreviewUrl(null);
-                }}
-              >
-                {lang === "kn" ? "ಮತ್ತೊಂದು ಕೃಷಿ ಎಲೆಯ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ" : "Upload a Crop Leaf Image"}
-              </button>
+              <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#991b1b", marginBottom: "0.5rem" }}>
+                {lang === "kn"
+                  ? "ಈ ಚಿತ್ರವು ಕೃಷಿ ಬೆಳೆಯನ್ನು ತೋರಿಸುತ್ತಿಲ್ಲ"
+                  : "This image does not appear to show a crop."}
+              </h2>
+              <p style={{ fontSize: "1rem", color: "#b91c1c", maxWidth: "650px", margin: "0 auto 1.25rem auto", lineHeight: 1.6 }}>
+                {lang === "kn" && result.symptoms_kn ? result.symptoms_kn : result.symptoms}
+              </p>
+              {result.plausibility_note && (
+                <div
+                  style={{
+                    display: "inline-block",
+                    padding: "0.5rem 1rem",
+                    background: "#ffffff",
+                    border: "1px solid #fca5a5",
+                    borderRadius: "8px",
+                    fontSize: "0.85rem",
+                    color: "#7f1d1d",
+                    fontWeight: 600,
+                    marginBottom: "1rem",
+                  }}
+                >
+                  ⚠️ {result.plausibility_note}
+                </div>
+              )}
+              <div style={{ marginTop: "0.75rem" }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: "#dc2626", borderColor: "#dc2626", padding: "0.6rem 1.5rem" }}
+                  onClick={() => {
+                    setResult(null);
+                    setSelectedFile(null);
+                    setPreviewUrl(null);
+                  }}
+                >
+                  {lang === "kn" ? "ಮತ್ತೊಂದು ಕೃಷಿ ಎಲೆಯ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ" : "Upload a Crop Leaf Image"}
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-        <div
-          className="card"
+          ) : (
+          <div
+            className="card"
           style={{
             padding: "2rem",
             border: `2px solid ${
@@ -2111,7 +2265,8 @@ export const DiseaseDetection = () => {
             {result.diagnostic_disclaimer || t.limitationsText}
           </div>
         </div>
-        )
+        )}
+        </>
       )}
 
       {/* Diagnosis History Section */}

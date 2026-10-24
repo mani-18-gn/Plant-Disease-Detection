@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "areca_agent_db"
 
     # --- External APIs ---
+    GOOGLE_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     GEMINI_DAILY_BUDGET_CAP: int = 100
     DATA_GOV_IN_API_KEY: str = ""

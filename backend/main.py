@@ -120,6 +120,12 @@ app.include_router(coordinator_router, prefix=api_prefix)
 app.include_router(learning_router, prefix=api_prefix)
 app.include_router(notifying_router, prefix=api_prefix)
 
+# Direct root-level and v1 aliases for Google-Powered Plant Disease Diagnosis (Section 7)
+from backend.agents.diagnosis.router import diagnose_plant, google_ai_status
+app.add_api_route("/api/diagnose", diagnose_plant, methods=["POST"], tags=["Diagnosis Agent"])
+app.add_api_route("/api/v1/diagnose", diagnose_plant, methods=["POST"], tags=["Diagnosis Agent"])
+app.add_api_route("/api/diagnose/status", google_ai_status, methods=["GET"], tags=["Diagnosis Agent"])
+
 # Mount Static Uploads directory for image access
 uploads_dir = Path(__file__).resolve().parent / "data" / "uploads"
 uploads_dir.mkdir(parents=True, exist_ok=True)

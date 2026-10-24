@@ -70,5 +70,6 @@ class DiseaseDetectionResponse(BaseModel):
     dataset_source: str | None = None
     diagnostic_disclaimer: str | None = None
     next_steps: list[str] | None = None
+    google_ai_diagnosis: dict | None = None
 
     model_config = ConfigDict(from_attributes=True)
