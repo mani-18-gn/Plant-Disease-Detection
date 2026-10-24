@@ -17,6 +17,9 @@ __pycache__/
 *.db
 /data/
 backend/data/uploads/
+backend/data/plantdoc/
+plantvillage_repo/
+plantdoc_repo/
 backend/db/migrations/versions/*.pyc
 
 # ML Model Checkpoints & Weights

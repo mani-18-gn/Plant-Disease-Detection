@@ -190,6 +190,54 @@ def get_sample_images():
             "badge": "Healthy",
         },
         {
+            "filename": "PlantDoc_Tomato_Early_Blight_Field.jpg",
+            "title": "Tomato Early Blight (PlantDoc Real Field)",
+            "title_kn": "ಟೊಮ್ಯಾಟೊ ಮುಂಗಾರು ಅಂಗಮಾರಿ (ನೈಜ ಹೊಲದ ಫೋಟೋ)",
+            "crop": "Tomato",
+            "condition": "Early Blight",
+            "badge": "PlantDoc In-Field",
+        },
+        {
+            "filename": "PlantDoc_Corn_Leaf_Blight_Field.jpg",
+            "title": "Corn Northern Leaf Blight (PlantDoc Real Field)",
+            "title_kn": "ಮೆಕ್ಕೆಜೋಳ ಉತ್ತರ ಎಲೆ ಅಂಗಮಾರಿ (ನೈಜ ಹೊಲದ ಫೋಟೋ)",
+            "crop": "Corn (Maize)",
+            "condition": "Northern Leaf Blight",
+            "badge": "PlantDoc In-Field",
+        },
+        {
+            "filename": "PlantDoc_Apple_Scab_Field.jpg",
+            "title": "Apple Scab (PlantDoc Real Field)",
+            "title_kn": "ಸೇಬು ಸ್ಕ್ಯಾಬ್ ರೋಗ (ನೈಜ ಹೊಲದ ಫೋಟೋ)",
+            "crop": "Apple",
+            "condition": "Apple Scab",
+            "badge": "PlantDoc In-Field",
+        },
+        {
+            "filename": "PlantDoc_Potato_Early_Blight_Field.jpg",
+            "title": "Potato Early Blight (PlantDoc Real Field)",
+            "title_kn": "ಆಲೂಗಡ್ಡೆ ಮುಂಗಾರು ಅಂಗಮಾರಿ (ನೈಜ ಹೊಲದ ಫೋಟೋ)",
+            "crop": "Potato",
+            "condition": "Early Blight",
+            "badge": "PlantDoc In-Field",
+        },
+        {
+            "filename": "PlantDoc_Bell_Pepper_Bacterial_Spot_Field.jpg",
+            "title": "Pepper Bell Bacterial Spot (PlantDoc Real Field)",
+            "title_kn": "ದಪ್ಪ ಮೆಣಸಿನಕಾಯಿ ಬ್ಯಾಕ್ಟೀರಿಯಾ ಚುಕ್ಕೆ ರೋಗ (ನೈಜ ಹೊಲದ ಫೋಟೋ)",
+            "crop": "Pepper (Bell)",
+            "condition": "Bacterial Spot",
+            "badge": "PlantDoc In-Field",
+        },
+        {
+            "filename": "PlantDoc_Grape_Black_Rot_Field.jpg",
+            "title": "Grape Black Rot (PlantDoc Real Field)",
+            "title_kn": "ದ್ರಾಕ್ಷಿ ಕಪ್ಪು ಕೊಳೆ ರೋಗ (ನೈಜ ಹೊಲದ ಫೋಟೋ)",
+            "crop": "Grape",
+            "condition": "Black Rot",
+            "badge": "PlantDoc In-Field",
+        },
+        {
             "filename": "Arecanut_Palm_Leaf_Field.webp",
             "title": "Arecanut Palm Leaf (Out-of-Distribution Demo)",
             "title_kn": "ಅಡಿಕೆ ಮರದ ಗರಿ (ಮಾದರಿ ವ್ಯಾಪ್ತಿ ಪರೀಕ್ಷೆ)",
@@ -375,16 +423,27 @@ async def detect_disease(
         )
 
     # Corroborate with live backend-only peer-reviewed research (CrossRef / OpenAlex / ICAR)
-    if inference_result.get("is_plant") and inference_result.get("crop"):
+    if inference_result.get("is_plant"):
         try:
-            live_research = await search_agricultural_research(
-                crop=inference_result.get("crop", ""),
-                condition=inference_result.get("condition", ""),
-                scientific_name=inference_result.get("scientific_name"),
-                causal_agent=inference_result.get("causal_agent"),
-            )
-            if live_research:
-                inference_result["online_research"] = live_research
+            target_crop = inference_result.get("crop") or block_crop
+            target_condition = inference_result.get("condition") or "disease management"
+            if target_crop and "unrecognized" in target_crop.lower() and block_crop:
+                target_crop = block_crop
+            if not target_crop or "unrecognized" in target_crop.lower():
+                top_preds = inference_result.get("top_predictions", [])
+                if top_preds and top_preds[0].get("crop"):
+                    target_crop = top_preds[0]["crop"]
+                    target_condition = top_preds[0].get("condition", "disease management")
+
+            if target_crop and "unrecognized" not in target_crop.lower():
+                live_research = await search_agricultural_research(
+                    crop=target_crop,
+                    condition=target_condition,
+                    scientific_name=inference_result.get("scientific_name"),
+                    causal_agent=inference_result.get("causal_agent"),
+                )
+                if live_research:
+                    inference_result["online_research"] = live_research
         except Exception as e:
             logger.warning(f"Online agricultural research fetch error: {e}")
 
@@ -462,6 +521,8 @@ async def detect_disease(
         is_plant=inference_result.get("is_plant", True),
         plant_coverage_pct=inference_result.get("plant_coverage_pct"),
         plausibility_note=inference_result.get("plausibility_note"),
+        rejection_reason=inference_result.get("rejection_reason"),
+        detected_objects=inference_result.get("detected_objects"),
         image_quality=inference_result.get("image_quality"),
         crop_match=inference_result.get("crop_match"),
         crop_mismatch_warning=inference_result.get("crop_mismatch_warning"),
@@ -469,4 +530,7 @@ async def detect_disease(
         identification_rationale=inference_result.get("identification_rationale"),
         online_research=inference_result.get("online_research"),
         visual_similarity=inference_result.get("visual_similarity"),
+        dataset_source=inference_result.get("dataset_source", "Hugging Face mohanty/PlantVillage (38 Classes, CC-BY-SA 3.0)"),
+        diagnostic_disclaimer=inference_result.get("diagnostic_disclaimer"),
+        next_steps=inference_result.get("next_steps"),
     )

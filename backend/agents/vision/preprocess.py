@@ -36,6 +36,16 @@ train_heavy_transform = transforms.Compose([
     transforms.Normalize(mean=NORM_MEAN, std=NORM_STD),
 ])
 
+# Robust training transform for natural in-field photos (PlantDoc) with lighting, scale, and background variations
+train_field_transform = transforms.Compose([
+    transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomRotation(degrees=20),
+    transforms.ColorJitter(brightness=0.25, contrast=0.25, saturation=0.2),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=NORM_MEAN, std=NORM_STD),
+])
+
 
 def preprocess_image_bytes(image_bytes: bytes) -> torch.Tensor:
     """
@@ -62,10 +72,14 @@ def preprocess_image_keras(image_bytes: bytes):
     return np.expand_dims(preprocessed, axis=0)
 
 
-def get_train_transform(is_low_volume: bool = False):
+def get_train_transform(is_low_volume: bool = False, is_field: bool = False):
     """
-    Return training transform pipeline. Applies heavier augmentation for low-volume classes.
+    Return training transform pipeline.
+    - is_field=True: Applies crop and illumination robustness for in-field photos (PlantDoc).
+    - is_low_volume=True: Applies heavier affine and rotation augmentation for imbalanced classes.
     """
+    if is_field:
+        return train_field_transform
     if is_low_volume:
         return train_heavy_transform
     return train_standard_transform

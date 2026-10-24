@@ -860,8 +860,13 @@ export const DiseaseDetection = () => {
                   e.currentTarget.style.background = "#ffffff";
                 }}
               >
-                <span>{s.badge === "Healthy" ? "🟢" : "🍂"}</span>
+                <span>{s.badge === "Healthy" ? "🟢" : (s.badge?.includes("PlantDoc") ? "🌾" : "🍂")}</span>
                 <span>{lang === "kn" && s.title_kn ? s.title_kn : s.title}</span>
+                {s.badge?.includes("PlantDoc") && (
+                  <span style={{ background: "#dcfce7", color: "#15803d", padding: "1px 6px", borderRadius: "4px", fontSize: "0.65rem", fontWeight: 700 }}>
+                    PlantDoc Field
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -1394,23 +1399,88 @@ export const DiseaseDetection = () => {
 
       {/* Diagnostic Result Section */}
       {result && !loading && (
+        result.is_plant === false ? (
+          <div
+            className="card"
+            style={{
+              padding: "2rem",
+              border: "2px solid #f87171",
+              background: "#fff1f2",
+              borderRadius: "16px",
+              boxShadow: "0 8px 24px rgba(239, 68, 68, 0.12)",
+              marginBottom: "2rem",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "68px",
+                height: "68px",
+                borderRadius: "50%",
+                background: "#fee2e2",
+                color: "#dc2626",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 1.25rem auto",
+              }}
+            >
+              <XCircle size={36} />
+            </div>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#991b1b", marginBottom: "0.5rem" }}>
+              {lang === "kn"
+                ? "ಈ ಚಿತ್ರವು ಕೃಷಿ ಬೆಳೆಯನ್ನು ತೋರಿಸುತ್ತಿಲ್ಲ"
+                : "This image does not appear to show a crop."}
+            </h2>
+            <p style={{ fontSize: "1rem", color: "#b91c1c", maxWidth: "650px", margin: "0 auto 1.25rem auto", lineHeight: 1.6 }}>
+              {lang === "kn" && result.symptoms_kn ? result.symptoms_kn : result.symptoms}
+            </p>
+            {result.plausibility_note && (
+              <div
+                style={{
+                  display: "inline-block",
+                  padding: "0.5rem 1rem",
+                  background: "#ffffff",
+                  border: "1px solid #fca5a5",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  color: "#7f1d1d",
+                  fontWeight: 600,
+                  marginBottom: "1rem",
+                }}
+              >
+                ⚠️ {result.plausibility_note}
+              </div>
+            )}
+            <div style={{ marginTop: "0.75rem" }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ background: "#dc2626", borderColor: "#dc2626", padding: "0.6rem 1.5rem" }}
+                onClick={() => {
+                  setResult(null);
+                  setSelectedFile(null);
+                  setPreviewUrl(null);
+                }}
+              >
+                {lang === "kn" ? "ಮತ್ತೊಂದು ಕೃಷಿ ಎಲೆಯ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ" : "Upload a Crop Leaf Image"}
+              </button>
+            </div>
+          </div>
+        ) : (
         <div
           className="card"
           style={{
             padding: "2rem",
             border: `2px solid ${
-              result.is_plant === false
-                ? "#c084fc"
-                : result.is_inconclusive
+              result.is_inconclusive
                 ? "#fef08a"
                 : result.is_healthy
                 ? "#86efac"
                 : "#fca5a5"
             }`,
             background:
-              result.is_plant === false
-                ? "#faf5ff"
-                : result.is_inconclusive
+              result.is_inconclusive
                 ? "#fffbeb"
                 : result.is_healthy
                 ? "#f0fdf4"
@@ -1885,6 +1955,97 @@ export const DiseaseDetection = () => {
             </div>
           )}
 
+          {/* Structured Next Steps Action Checklist */}
+          {result.next_steps && result.next_steps.length > 0 && (
+            <div
+              style={{
+                padding: "1.25rem",
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                borderRadius: "12px",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <h4 style={{ fontSize: "0.95rem", color: "#166534", margin: "0 0 0.75rem 0", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <CheckCircle2 size={18} color="#16a34a" />
+                {lang === "kn" ? "ಮುಂದಿನ ಕ್ರಮಗಳು ಮತ್ತು ಕೃಷಿ ನಿರ್ವಹಣೆ" : "Recommended Immediate Next Steps"}
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: "1.25rem", fontSize: "0.875rem", color: "#1e293b", lineHeight: 1.6 }}>
+                {result.next_steps.map((step, idx) => (
+                  <li key={idx} style={{ marginBottom: "0.4rem" }}>
+                    {step}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Peer-Reviewed Online Literature & Academic Research (CrossRef & OpenAlex) */}
+          {result.online_research && result.online_research.length > 0 && (
+            <div
+              style={{
+                padding: "1.25rem",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <h4 style={{ fontSize: "0.95rem", color: "#0f172a", margin: "0 0 0.75rem 0", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <BookOpen size={18} color="#0284c7" />
+                {lang === "kn" ? "ಸಹವರ್ತಿ ವಿಮರ್ಶಿತ ಕೃಷಿ ಸಂಶೋಧನಾ ಪ್ರಬಂಧಗಳು (CrossRef / OpenAlex)" : "Peer-Reviewed Agronomy Research (CrossRef & OpenAlex)"}
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                {result.online_research.map((paper, idx) => (
+                  <div key={idx} style={{ padding: "0.75rem", background: "#ffffff", borderRadius: "8px", border: "1px solid #cbd5e1" }}>
+                    <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "#1e293b", marginBottom: "0.2rem" }}>
+                      {paper.title}
+                    </div>
+                    {paper.journal && (
+                      <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: "0.3rem" }}>
+                        📖 {paper.journal} {paper.year ? `(${paper.year})` : ""}
+                      </div>
+                    )}
+                    {paper.url && (
+                      <a
+                        href={paper.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: "0.78rem", color: "#0284c7", display: "inline-flex", alignItems: "center", gap: "0.25rem", textDecoration: "underline" }}
+                      >
+                        Read Paper / DOI <ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Dataset Provenance & Attribution Badge */}
+          {result.dataset_source && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                marginBottom: "1rem",
+                padding: "0.6rem 0.9rem",
+                background: "#eff6ff",
+                border: "1px solid #bfdbfe",
+                borderRadius: "8px",
+                fontSize: "0.8rem",
+                color: "#1e40af",
+              }}
+            >
+              <Sparkles size={16} />
+              <span>
+                <strong>Dataset Provenance: </strong>
+                {result.dataset_source}
+              </span>
+            </div>
+          )}
+
           {/* Limitations and Disclaimer */}
           <div
             style={{
@@ -1897,9 +2058,10 @@ export const DiseaseDetection = () => {
             }}
           >
             <strong style={{ color: "#475569" }}>{t.limitationsTitle}: </strong>
-            {t.limitationsText}
+            {result.diagnostic_disclaimer || t.limitationsText}
           </div>
         </div>
+        )
       )}
 
       {/* Diagnosis History Section */}

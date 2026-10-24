@@ -56,6 +56,8 @@ class DiseaseDetectionResponse(BaseModel):
     is_plant: bool = True
     plant_coverage_pct: float | None = None
     plausibility_note: str | None = None
+    rejection_reason: str | None = None
+    detected_objects: list[str] | None = None
     image_quality: dict | None = None
     crop_match: bool | None = None
     crop_mismatch_warning: str | None = None
@@ -65,5 +67,8 @@ class DiseaseDetectionResponse(BaseModel):
     # Multi-Stage Corroborating Evidence (Online Research & Visual Prototype Retrieval)
     online_research: list[dict] | None = None
     visual_similarity: list[dict] | None = None
+    dataset_source: str | None = None
+    diagnostic_disclaimer: str | None = None
+    next_steps: list[str] | None = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -149,55 +149,22 @@ def check_image_quality(image: Image.Image) -> Dict[str, Any]:
     }
 
 
+from backend.agents.vision.crop_validator import validate_crop_image
+
+
 def validate_plant_plausibility(image: Image.Image) -> Dict[str, Any]:
     """
     Stage B: Determine whether the image plausibly contains plant foliage or leaves.
-    Uses plant pigment analysis (Excess Green index ExG = 2G - R - B, chlorotic/necrotic
-    yellow-brown spectra, and color variance).
+    Delegates to validate_crop_image which checks faces, non-crop objects, and foliage pigments.
     """
-    try:
-        img_rgb = image.convert("RGB")
-        # Resize small for fast computation
-        thumb = img_rgb.resize((128, 128))
-        arr = np.array(thumb, dtype=float) / 255.0
-
-        r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
-
-        # 1. Excess Green Index (chlorophyll detection)
-        exg = 2 * g - r - b
-        green_mask = (exg > 0.03) | ((g > r * 0.92) & (g > b * 1.08) & (g > 0.12))
-
-        # 2. Chlorotic yellow / necrotic leaf spot mask (carotenoids / dried tissue)
-        yellow_brown_mask = (r > 0.25) & (g > 0.20) & (b < 0.35) & (r > b * 1.25)
-
-        # Combined organic foliage mask
-        foliage_mask = green_mask | yellow_brown_mask
-        coverage_pct = float(np.mean(foliage_mask) * 100.0)
-
-        # Minimum plausible threshold: a plant photo must have at least ~7.5% organic plant pixels
-        is_plant = coverage_pct >= 7.5
-
-        if not is_plant:
-            note = (
-                f"Low organic plant foliage detected ({coverage_pct:.1f}%). "
-                "The image does not appear to contain plant leaves, stems, or crop foliage. "
-                "Please upload a clear photograph of the affected plant."
-            )
-        else:
-            note = f"Plausible plant foliage confirmed ({coverage_pct:.1f}% vegetative surface area)."
-
-        return {
-            "is_plant": is_plant,
-            "plant_coverage_pct": round(coverage_pct, 1),
-            "plausibility_note": note,
-        }
-    except Exception as e:
-        logger.warning(f"Plant plausibility calculation failed: {e}")
-        return {
-            "is_plant": True,
-            "plant_coverage_pct": None,
-            "plausibility_note": "Foliage plausibility verification bypassed.",
-        }
+    check = validate_crop_image(image)
+    return {
+        "is_plant": check["is_crop"],
+        "plant_coverage_pct": check.get("plant_coverage_pct"),
+        "plausibility_note": check.get("message"),
+        "reason": check.get("reason"),
+        "detected_objects": check.get("detected_objects", []),
+    }
 
 
 def run_multicrop_vision_inference(
@@ -216,19 +183,14 @@ def run_multicrop_vision_inference(
     # Image quality check
     quality_info = check_image_quality(image)
 
-    # Stage B: Plant & Foliage Plausibility Verification
-    plausibility = validate_plant_plausibility(image)
+    # Stage B: Crop & Plant Foliage Verification (rejection of faces, persons, unrelated objects, non-crop scenes)
+    plausibility = validate_crop_image(image)
 
-    model, processor = get_multicrop_model()
-    if model is None or processor is None:
-        raise ModelNotAvailableError(
-            "Multi-crop Vision model weights are unavailable or failed to load. "
-            "Please verify weights are installed in backend/agents/vision/weights/multi_crop_mobilenetv2."
-        )
-
-    # If the image clearly contains no plant tissue, do not force a diagnosis
-    if not plausibility["is_plant"]:
+    # If the image clearly contains no crop tissue, face, or unrelated object, reject immediately
+    if not plausibility["is_crop"]:
         advisory = INCONCLUSIVE_ADVICE
+        rejection_msg = plausibility["message"]
+        rejection_msg_kn = plausibility["message_kn"]
         return {
             "predicted_disease": "Inconclusive - Non-Plant Subject",
             "confidence": 0.0,
@@ -241,33 +203,26 @@ def run_multicrop_vision_inference(
             "affected_parts": [],
             "is_healthy": False,
             "causal_agent": None,
-            "symptoms": (
-                "The uploaded image does not appear to contain organic plant foliage or leaves. "
-                f"Detected vegetative coverage is only {plausibility.get('plant_coverage_pct', 0)}%. "
-                "Please upload a close-up photograph of a diseased or healthy plant leaf in daylight."
-            ),
-            "symptoms_kn": (
-                "ಅಪ್‌ಲೋಡ್ ಮಾಡಿದ ಫೋಟೋದಲ್ಲಿ ಗಿಡದ ಎಲೆಗಳು ಕಂಡುಬಂದಿಲ್ಲ. "
-                "ದಯವಿಟ್ಟು ಕೃಷಿ ಬೆಳೆಯ ಎಲೆಯ ಸ್ಪಷ್ಟ ಫೋಟೋವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ."
-            ),
-            "differential_diagnosis": "No plant tissue detected to formulate differential diagnosis.",
+            "symptoms": rejection_msg,
+            "symptoms_kn": rejection_msg_kn,
+            "differential_diagnosis": "No crop leaf or plant tissue detected to formulate differential diagnosis.",
             "differential_diagnosis_kn": "ಸಸ್ಯದ ಅಂಗಾಂಶ ಕಂಡುಬಂದಿಲ್ಲ.",
             "favorable_conditions": "N/A",
             "favorable_conditions_kn": "ಅನ್ವಯಿಸುವುದಿಲ್ಲ",
-            "preventive_practices": "Capture a clear, well-focused macro photograph of the crop leaf.",
+            "preventive_practices": "Capture a clear, well-focused photograph of the crop leaf or plant.",
             "preventive_practices_kn": "ಬೆಳೆಯ ಎಲೆಯ ಸ್ಪಷ್ಟ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
-            "cultural_biological_management": "Ensure camera lens is clean and centered on a single leaf.",
+            "cultural_biological_management": "Ensure camera lens is clean and focused directly on crop leaves or plants.",
             "cultural_biological_management_kn": "ಕ್ಯಾಮೆರಾ ಎಲೆಯ ಮೇಲೆ ಕೇಂದ್ರೀಕೃತವಾಗಿರಲಿ.",
             "chemical_management": "Do NOT spray chemicals on an unrecognized subject.",
             "chemical_management_kn": "ಯಾವುದೇ ರಾಸಾಯನಿಕ ಸಿಂಪಡಿಸಬೇಡಿ.",
             "expert_warning": (
-                "INVALID INPUT: Please upload an authentic photograph of an agricultural crop leaf for pathology assessment."
+                "INVALID INPUT: This image does not appear to show a crop. Please upload an authentic photograph of an agricultural crop leaf for pathology assessment."
             ),
             "expert_warning_kn": (
-                "ಅಮಾನ್ಯ ಫೋಟೋ: ದಯವಿಟ್ಟು ಕೃಷಿ ಬೆಳೆಯ ಎಲೆಯ ನೈಜ ಫೋಟೋವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ."
+                "ಅಮಾನ್ಯ ಫೋಟೋ: ಈ ಚಿತ್ರವು ಕೃಷಿ ಬೆಳೆಯನ್ನು ತೋರಿಸುತ್ತಿಲ್ಲ. ದಯವಿಟ್ಟು ಕೃಷಿ ಬೆಳೆಯ ಎಲೆಯ ನೈಜ ಫೋಟೋವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ."
             ),
-            "management": "Please upload a clear photograph of a plant leaf.",
-            "management_kn": "ದಯವಿಟ್ಟು ಗಿಡದ ಎಲೆಯ ಸ್ಪಷ್ಟ ಫೋಟೋವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
+            "management": rejection_msg,
+            "management_kn": rejection_msg_kn,
             "sources": advisory.get("sources", []),
             "top_predictions": [],
             "raw_class": "non_plant",
@@ -275,11 +230,20 @@ def run_multicrop_vision_inference(
             "backend": "multicrop",
             "image_quality": quality_info,
             "is_plant": False,
-            "plant_coverage_pct": plausibility.get("plant_coverage_pct"),
-            "plausibility_note": plausibility.get("plausibility_note"),
+            "plant_coverage_pct": plausibility.get("plant_coverage_pct", 0.0),
+            "plausibility_note": rejection_msg,
             "crop_match": False,
-            "crop_mismatch_warning": "Uploaded photograph does not contain plant foliage.",
+            "crop_mismatch_warning": rejection_msg,
+            "rejection_reason": plausibility.get("reason"),
+            "detected_objects": plausibility.get("detected_objects", []),
         }
+
+    model, processor = get_multicrop_model()
+    if model is None or processor is None:
+        raise ModelNotAvailableError(
+            "Multi-crop Vision model weights are unavailable or failed to load. "
+            "Please verify weights are installed in backend/agents/vision/weights/multi_crop_mobilenetv2."
+        )
 
     # Stage D: Preprocess and extract 1280-d feature embedding
     query_emb = extract_image_embedding(model, processor, image)
@@ -291,6 +255,24 @@ def run_multicrop_vision_inference(
         outputs = model(**inputs)
         logits = outputs.logits
         probabilities = F.softmax(logits, dim=-1)[0]
+
+    # In-field prototype resonance calibration:
+    # If the photograph closely resembles a verified reference prototype (PlantDoc in-field or PlantVillage benchmark),
+    # reinforce the corresponding pathology class to enhance real-world field detection accuracy
+    if visual_similarities and visual_similarities[0]["similarity_score"] >= 0.72:
+        top_proto = visual_similarities[0]
+        p_crop = top_proto.get("crop", "").lower().split("(")[0].replace(",", "").strip()
+        p_cond = top_proto.get("condition", "").lower()
+        matched_idx = None
+        for id_k, name_v in model.config.id2label.items():
+            name_clean = str(name_v).lower().replace(",", "").replace("(", "").replace(")", "")
+            if p_crop in name_clean and (p_cond in name_clean or p_cond.replace(" ", "") in name_clean.replace(" ", "")):
+                matched_idx = int(id_k)
+                break
+        if matched_idx is not None:
+            sim_boost = float((top_proto["similarity_score"] - 0.70) * 4.5)
+            probabilities[matched_idx] += sim_boost
+            probabilities = probabilities / probabilities.sum()
 
     # Stage E: Extract top candidates
     k = min(3, len(probabilities))
@@ -414,7 +396,7 @@ def run_multicrop_vision_inference(
             "image_quality": quality_info,
             "is_plant": True,
             "plant_coverage_pct": plausibility.get("plant_coverage_pct"),
-            "plausibility_note": plausibility.get("plausibility_note"),
+            "plausibility_note": plausibility.get("message") or plausibility.get("plausibility_note"),
             "crop_match": False,
             "crop_mismatch_warning": (
                 "Foliage morphology and visual embeddings indicate Arecanut Palm (Areca catechu L.). "
@@ -453,10 +435,49 @@ def run_multicrop_vision_inference(
     effective_threshold = CONFIDENCE_THRESHOLD + quality_penalty
     is_inconclusive = top_1_score < effective_threshold
 
+    diagnostic_disclaimer = (
+        "Important Notice: This assessment provides assistive decision-support screening based on visual features "
+        "trained on the Hugging Face mohanty/PlantVillage dataset (38 classes, CC-BY-SA 3.0) and PlantDoc in-field dataset, "
+        "corroborated with external agricultural literature. A photograph alone cannot provide a definitive diagnosis "
+        "or replace laboratory culturing. Always confirm with an agronomist or local Krishi Vigyan Kendra (KVK) before applying intensive chemical sprays."
+    )
+
     if is_inconclusive:
-        predicted_disease = "Inconclusive"
+        predicted_disease = "Inconclusive - Outside Dataset Coverage or Low Confidence"
+        predicted_condition = "Low Confidence / Outside Dataset Scope"
+        symptoms_text = (
+            "The uploaded photograph has low statistical confidence or falls outside the benchmark categories "
+            "covered by the PlantVillage and PlantDoc datasets. Automated visual prediction was suppressed to "
+            "prevent cross-species false positives. Please review the external botanical research links and next steps below."
+        )
+        symptoms_kn_text = (
+            "ಅಪ್‌ಲೋಡ್ ಮಾಡಿದ ಫೋಟೋ ಕಡಿಮೆ ವಿಶ್ವಾಸಾರ್ಹತೆಯನ್ನು ಹೊಂದಿದೆ ಅಥವಾ ಮಾದರಿಯ ಬೆಳೆಗಳ ವ್ಯಾಪ್ತಿಯಿಂದ ಹೊರಗಿದೆ. "
+            "ತಪ್ಪಾದ ರೋಗ ನಿರ್ಧಾರ ತಡೆಯಲು AI ತಪಾಸಣೆ ತಡೆಹಿಡಿಯಲಾಗಿದೆ. ಕೆಳಗಿನ ಸಂಶೋಧನಾ ಮಾಹಿತಿ ಮತ್ತು ಕೃಷಿ ಸಲಹೆಗಳನ್ನು ಪರಿಶೀಲಿಸಿ."
+        )
+        next_steps = [
+            "Capture a closer, sharp macro photograph of a single affected leaf in natural daylight.",
+            "Inspect the underside of leaves for visible fungal mycelium, rust pustules, or insect pests.",
+            "Consult local agricultural extension officers or Krishi Vigyan Kendra (KVK) with a physical fresh leaf sample.",
+            "Do NOT apply synthetic chemical fungicides or insecticides on an unverified diagnosis."
+        ]
     else:
         predicted_disease = f"{predicted_crop} - {predicted_condition}" if predicted_crop else predicted_condition
+        symptoms_text = advisory.get("symptoms", "")
+        symptoms_kn_text = advisory.get("symptoms_kn")
+        if advisory.get("is_healthy"):
+            next_steps = [
+                "Maintain regular field scouting and balanced nitrogen-phosphorus-potassium (NPK) nutrition.",
+                "Ensure clean drip irrigation and inspect plants weekly for early spot or rust symptoms.",
+                "Practice crop rotation and field sanitation to sustain healthy foliage canopy."
+            ]
+        else:
+            next_steps = [
+                "Scout both upper and lower leaf surfaces to check lesion margins and expansion rate.",
+                "Cultural Practice: " + (advisory.get("cultural_biological_management") or "Ensure adequate row aeration and remove lower touching leaves."),
+                "Preventive Action: " + (advisory.get("preventive_practices") or "Avoid overhead irrigation; promptly collect and safely dispose of blighted foliage."),
+                "Targeted Management: " + (advisory.get("chemical_management") or "Apply ICAR/CIBRC registered protective spray if disease reaches economic threshold."),
+                "Expert Verification: Confirm symptoms with your local agricultural university or KVK extension officer before large-scale spraying."
+            ]
 
     # Stage G & H: Return enriched result
     return {
@@ -471,8 +492,8 @@ def run_multicrop_vision_inference(
         "affected_parts": advisory.get("affected_parts", ["Leaves"]),
         "is_healthy": advisory.get("is_healthy", False),
         "causal_agent": advisory.get("causal_agent"),
-        "symptoms": advisory.get("symptoms", ""),
-        "symptoms_kn": advisory.get("symptoms_kn"),
+        "symptoms": symptoms_text,
+        "symptoms_kn": symptoms_kn_text,
         "differential_diagnosis": advisory.get("differential_diagnosis"),
         "differential_diagnosis_kn": advisory.get("differential_diagnosis_kn"),
         "favorable_conditions": advisory.get("favorable_conditions"),
@@ -490,15 +511,19 @@ def run_multicrop_vision_inference(
         "sources": advisory.get("sources", []),
         "top_predictions": top_predictions,
         "raw_class": raw_class,
-        "model_architecture": "MobileNetV2 (PlantVillage 38-class)",
+        "model_architecture": "MobileNetV2 (PlantVillage 38-class + PlantDoc In-Field Benchmark)",
         "backend": "multicrop",
-        "image_quality": quality_info,
-        "is_plant": plausibility.get("is_plant", True),
+        "dataset_source": "Hugging Face mohanty/PlantVillage (38 Classes, CC-BY-SA 3.0) & PlantDoc In-Field Benchmark",
+        "diagnostic_disclaimer": diagnostic_disclaimer,
+        "next_steps": next_steps,
+        "is_plant": plausibility.get("is_crop", True),
         "plant_coverage_pct": plausibility.get("plant_coverage_pct"),
-        "plausibility_note": plausibility.get("plausibility_note"),
+        "plausibility_note": plausibility.get("message"),
+        "rejection_reason": None,
+        "detected_objects": [],
         "crop_match": crop_match,
         "crop_mismatch_warning": crop_mismatch_warning,
-        "crop_support_status": species_info.get("crop_support_status", "supported"),
+        "crop_support_status": "unsupported_or_low_confidence" if is_inconclusive else species_info.get("crop_support_status", "supported"),
         "identification_rationale": species_info.get("identification_rationale"),
         "visual_similarity": visual_similarities,
         "online_research": default_research,

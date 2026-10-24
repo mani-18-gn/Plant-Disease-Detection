@@ -135,6 +135,66 @@ REFERENCE_METADATA: Dict[str, Dict[str, Any]] = {
         "is_monocot": False,
         "title": "Apple Healthy Foliage",
     },
+    "PlantDoc_Tomato_Early_Blight_Field.jpg": {
+        "crop": "Tomato",
+        "crop_kn": "ಟೊಮ್ಯಾಟೊ",
+        "condition": "Early Blight",
+        "condition_kn": "ಮುಂಗಾರು ಅಂಗಮಾರಿ",
+        "is_healthy": False,
+        "plant_family": "Solanaceae",
+        "is_monocot": False,
+        "title": "Tomato Early Blight (PlantDoc Real Farm In-Field Benchmark)",
+    },
+    "PlantDoc_Corn_Leaf_Blight_Field.jpg": {
+        "crop": "Corn (Maize)",
+        "crop_kn": "ಮೆಕ್ಕೆಜೋಳ",
+        "condition": "Northern Leaf Blight",
+        "condition_kn": "ಉತ್ತರ ಎಲೆ ಅಂಗಮಾರಿ",
+        "is_healthy": False,
+        "plant_family": "Poaceae",
+        "is_monocot": True,
+        "title": "Corn Northern Leaf Blight (PlantDoc Real Farm In-Field Benchmark)",
+    },
+    "PlantDoc_Apple_Scab_Field.jpg": {
+        "crop": "Apple",
+        "crop_kn": "ಸೇಬು",
+        "condition": "Apple Scab",
+        "condition_kn": "ಸ್ಕ್ಯಾಬ್ ರೋಗ",
+        "is_healthy": False,
+        "plant_family": "Rosaceae",
+        "is_monocot": False,
+        "title": "Apple Scab (PlantDoc Real Farm In-Field Benchmark)",
+    },
+    "PlantDoc_Potato_Early_Blight_Field.jpg": {
+        "crop": "Potato",
+        "crop_kn": "ಆಲೂಗಡ್ಡೆ",
+        "condition": "Early Blight",
+        "condition_kn": "ಮುಂಗಾರು ಅಂಗಮಾರಿ",
+        "is_healthy": False,
+        "plant_family": "Solanaceae",
+        "is_monocot": False,
+        "title": "Potato Early Blight (PlantDoc Real Farm In-Field Benchmark)",
+    },
+    "PlantDoc_Bell_Pepper_Bacterial_Spot_Field.jpg": {
+        "crop": "Pepper (Bell)",
+        "crop_kn": "ದಪ್ಪ ಮೆಣಸಿನಕಾಯಿ",
+        "condition": "Bacterial Spot",
+        "condition_kn": "ಬ್ಯಾಕ್ಟೀರಿಯಾದ ಚುಕ್ಕೆ ರೋಗ",
+        "is_healthy": False,
+        "plant_family": "Solanaceae",
+        "is_monocot": False,
+        "title": "Pepper Bell Bacterial Spot (PlantDoc Real Farm In-Field Benchmark)",
+    },
+    "PlantDoc_Grape_Black_Rot_Field.jpg": {
+        "crop": "Grape",
+        "crop_kn": "ದ್ರಾಕ್ಷಿ",
+        "condition": "Black Rot",
+        "condition_kn": "ಕಪ್ಪು ಕೊಳೆ ರೋಗ",
+        "is_healthy": False,
+        "plant_family": "Vitaceae",
+        "is_monocot": False,
+        "title": "Grape Black Rot (PlantDoc Real Farm In-Field Benchmark)",
+    },
 }
 
 _PROTOTYPE_CACHE: Dict[str, torch.Tensor] = {}
@@ -277,8 +337,8 @@ def analyze_plant_species_and_compatibility(
     # Case 3: MobileNet predicted "Strawberry" (classic closed-set artifact) but areca_similarity > 0.48 or palm morphology
     is_arecanut_palm = (
         is_explicit_areca
-        or areca_similarity >= 0.65
-        or (predicted_38_crop == "Strawberry" and (areca_similarity >= 0.48 or is_palm_morphology))
+        or (areca_similarity >= 0.72 and is_palm_morphology)
+        or (predicted_38_crop == "Strawberry" and is_palm_morphology and areca_similarity >= 0.50)
     )
 
     if is_arecanut_palm:
