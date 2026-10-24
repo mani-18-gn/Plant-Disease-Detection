@@ -534,17 +534,13 @@ export const DiseaseDetection = () => {
       // In auto mode, pass null cropContext so backend vision models classify without species bias
       const cropContext = targetCrop !== "auto" ? targetCrop : null;
 
-<<<<<<< HEAD
-      const response = await diseaseApi.detectDisease(blockId, file, cropContext);
-=======
       const response = await diseaseApi.detectDisease(
         blockId,
-        selectedFile,
+        file,
         cropContext,
         userSymptoms?.trim() || null,
         userLocation?.trim() || null
       );
->>>>>>> 323d586 (feat: integrate Google Gen AI multimodal diagnosis and grounded search with dual-engine UI)
       const detectionData = response.data || response;
       setResult(detectionData);
       if (blockId) {
