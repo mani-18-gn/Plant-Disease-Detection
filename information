@@ -1,0 +1,111 @@
+# BharatCrop AI / Areca-Agent — Complete System Architecture & Information Reference
+
+Please see the rich Markdown document at:
+- information.md (file:///c:/Users/admin/Downloads/Areca-Agent-main/Areca-Agent-main/information.md)
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. Executive Summary & Core Objectives
+2. Complete Technology Stack
+3. Master Repository Directory Structure & File Map
+4. Multi-Agent System Architecture (The 8 Autonomous Agents)
+   - 4.1 Vision Agent (Edge Deep Learning)
+   - 4.2 Diagnosis Agent (Google AI Multimodal + Bayesian Belief Network)
+   - 4.3 Advisory Agent (Agronomic Guidance & LLM Cache)
+   - 4.4 Coordinator Agent (Priority Decision Engine)
+   - 4.5 Weather Agent (Microclimate & Disease Risk)
+   - 4.6 Market Agent (LSTM Mandi Price Forecasting)
+   - 4.7 Learning Agent (Q-Learning Feedback Optimization)
+   - 4.8 Notifying Agent (Threshold Monitoring & Alerts)
+5. AI, Deep Learning & Statistical Models
+6. Database Schema & Entity Relationship Model
+7. Frontend Web Architecture (React 18 + Vite)
+8. IoT Firmware & Hardware Telemetry (ESP32)
+9. REST API Endpoints & Routing Guide
+10. Configuration & Environment Variables
+11. Execution, Testing & Deployment
+
+================================================================================
+1. EXECUTIVE SUMMARY & CORE OBJECTIVES
+================================================================================
+BharatCrop AI (Areca-Agent) is an enterprise-grade precision agriculture and automated crop disease identification platform. The system combines Local Edge Deep Learning (MobileNetV2 / PyTorch) with Google's Advanced Multimodal Generative AI (gemini-3.1-flash-lite-preview / gemini-3-flash-preview).
+
+Key System Capabilities:
+- Dual-Engine Plant Pathology: Cross-validates local CNN image classification with cloud-based Google Gemini multimodal reasoning to eliminate false positives.
+- Differential Diagnosis: Provides primary disease diagnosis alongside at least two plausible differential alternatives, visual symptom breakdowns, and confidence assessments.
+- 3-Pillar Integrated Pest Management (IPM): Generates actionable, grounded treatment protocols covering:
+  1. Organic / Biological Controls (Trichoderma, Pseudomonas, neem formulations)
+  2. Chemical Controls (Systemic fungicides, active ingredients, dosage, pre-harvest intervals)
+  3. Agronomic / Cultural Practices (Sanitation, spacing, canopy pruning, drainage)
+- Closed-Loop Multi-Agent Collaboration: 8 specialized agents work asynchronously to assess visual health, microclimate disease risks, mandi commodity price trends, and farmer feedback.
+- Enterprise-Ready Database Architecture: 5-schema design (core, agronomy, env, market, logs) supporting SQLite for rapid local prototyping and PostgreSQL for production deployments.
+
+================================================================================
+2. COMPLETE TECHNOLOGY STACK
+================================================================================
+- Backend Framework: FastAPI (v0.110.0)
+- ASGI Server: Uvicorn standard (v0.28.0)
+- Language Runtime: Python 3.11+
+- Cloud Multimodal AI: Google Gen AI SDK (google-genai >=2.0.0, v2.33.0)
+- Deep Learning (Vision): PyTorch (v2.14.0+cpu), Torchvision (v0.29.1+cpu)
+- Hugging Face / Transformers: Transformers (>=4.40.0), Safetensors (>=0.4.0)
+- Data Validation: Pydantic (v2.6.4), Pydantic Settings (v2.2.1)
+- Database ORM: SQLAlchemy (v2.0.28)
+- Migrations: Alembic (v1.13.1)
+- Database Engines: SQLite 3 / PostgreSQL 16
+- Database Drivers: sqlite3 / psycopg2-binary (v2.9.9)
+- Authentication: PyJWT (v2.8.0), Passlib (v1.7.4), Bcrypt (v4.0.1)
+- HTTP Client: HTTPX (v0.27.0)
+- Data Science / ML: NumPy (v1.26.4), Pandas (v2.2.1), Scikit-learn (v1.4.1)
+- Image Processing: Pillow (PIL >=10.0.0)
+- Automated Testing: Pytest (82/82 passing tests)
+- Frontend Framework: React 18.3.1
+- Build Tool / Bundler: Vite 6.1.0
+- Frontend Routing: React Router DOM 6.29.0
+- Styling: Vanilla CSS + Tailwind utilities
+- Icons: Lucide React (v0.475.0), Hugeicons (v1.1.10)
+- Frontend HTTP: Axios (v1.7.9)
+- Microcontroller / IoT: ESP32 (ESP-WROOM-32) with PlatformIO / Arduino C++
+- IoT Protocol: MQTT v3.1.1
+- Containerization: Docker & Docker Compose 3.8
+
+================================================================================
+3. COMPLETE DIRECTORY MAP & WHERE EVERYTHING IS PLACED
+================================================================================
+- Root directory: c:/Users/admin/Downloads/Areca-Agent-main/Areca-Agent-main
+  ├── backend/
+  │   ├── main.py (FastAPI entrypoint and router registry)
+  │   ├── config.py (Pydantic BaseSettings, .env loader)
+  │   ├── requirements.txt (Python dependencies)
+  │   ├── agents/
+  │   │   ├── coordinator/ (Orchestrator and weighting matrix)
+  │   │   ├── vision/ (MobileNetV2, PyTorch CNN, similarity, advisory db)
+  │   │   ├── diagnosis/ (Google Gemini multimodal engine, Bayesian network)
+  │   │   ├── advisory/ (Gemini LLM advisor, cache, rule-based fallback)
+  │   │   ├── weather/ (Microclimate API, ARIMA model, disease risk)
+  │   │   ├── market/ (AGMARKNET client, LSTM mandi price forecasting)
+  │   │   ├── learning/ (Q-learning reinforcement learning, feedback store)
+  │   │   └── notifying/ (Threshold alerts and notification manager)
+  │   ├── auth/ (JWT generation, password hashing, auth router)
+  │   ├── core/ (Farmer, farm, crop block, and activity services)
+  │   ├── db/ (SQLAlchemy session, 5-schema models: core, agronomy, env, market, logs)
+  │   ├── hardware/ (MQTT listener and IoT router)
+  │   ├── schemas/ (Pydantic DTO request/response models)
+  │   └── tests/ (Pytest test suite: 82 specs)
+  ├── frontend-web/
+  │   ├── src/
+  │   │   ├── App.jsx (Root routing and layout)
+  │   │   ├── main.jsx (React root entry)
+  │   │   ├── index.css (Global design system and dark theme styles)
+  │   │   ├── api/ (Axios client and API adapters)
+  │   │   ├── components/ (GoogleAIDiagnosis, Navbar, Sidebar, FarmSetupModal)
+  │   │   ├── context/ (AuthContext, FarmContext)
+  │   │   └── pages/ (Dashboard, DiseaseDetection, Weather, Market, Advisory, ActivityLog)
+  ├── firmware/ (ESP32 C++ firmware with PlatformIO for soil and environmental telemetry)
+  ├── docs/ (Research benchmarks, model evaluation reports, and architecture diagrams)
+  ├── docker-compose.yml (PostgreSQL + Backend containers)
+  ├── run_backend.bat (One-click backend launcher)
+  └── run_frontend.bat (One-click frontend launcher)
+
+For the complete formatted manual with all formulas, endpoints, and diagrams, open information.md!
