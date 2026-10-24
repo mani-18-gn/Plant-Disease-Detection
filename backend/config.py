@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # --- Vision Agent Backend ---
     VISION_BACKEND: str = "multicrop"  # "multicrop" | "pytorch" | "keras"
     VISION_MODEL_DIR: str = str(Path(__file__).parent / "agents" / "vision" / "weights" / "multi_crop_mobilenetv2")
-    VISION_CONFIDENCE_THRESHOLD: float = 0.40
+    VISION_CONFIDENCE_THRESHOLD: float = 0.48
     MAX_UPLOAD_IMAGE_SIZE_BYTES: int = 15 * 1024 * 1024  # 15 MB
 
     model_config = SettingsConfigDict(

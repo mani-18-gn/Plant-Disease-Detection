@@ -86,17 +86,23 @@ def detect_human_face(image: Image.Image) -> bool:
     try:
         import cv2
         img_rgb = image.convert("RGB")
-        # Resize for fast, reliable cascade processing
         img_rgb.thumbnail((800, 800))
-        gray = cv2.cvtColor(np.array(img_rgb), cv2.COLOR_RGB2GRAY)
-        gray = cv2.equalizeHist(gray)
-        faces = cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=6,
-            minSize=(48, 48)
-        )
-        return len(faces) > 0
+        arr = np.array(img_rgb)
+        gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+        
+        # Test candidate face detections
+        candidates = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(48, 48))
+        if len(candidates) == 0:
+            candidates = cascade.detectMultiScale(cv2.equalizeHist(gray), scaleFactor=1.1, minNeighbors=6, minSize=(48, 48))
+
+        # Confirm candidate contains human skin pigmentation to avoid false positives on leaf veins/textures
+        for (x, y, w, h) in candidates:
+            face_crop = arr[y:y+h, x:x+w].astype(float) / 255.0
+            r, g, b = face_crop[..., 0], face_crop[..., 1], face_crop[..., 2]
+            skin_mask = (r > 0.35) & (g > 0.20) & (r - g > 0.08) & (r - b > 0.12)
+            if np.mean(skin_mask) >= 0.08:
+                return True
+        return False
     except Exception as e:
         logger.debug(f"Face detection exception: {e}")
         return False

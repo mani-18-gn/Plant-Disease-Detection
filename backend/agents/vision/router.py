@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import io
 import uuid
 import logging
@@ -22,9 +23,11 @@ from backend.agents.vision.inference import (
     run_vision_inference,
     ModelNotAvailableError,
     get_multicrop_model,
+    get_pytorch_model,
 )
 from backend.agents.vision.advisory_db import (
     CLASS_METADATA,
+    EXTENDED_CROP_ADVISORY,
     get_diagnosis_advisory,
     search_knowledge_base,
     get_all_supported_crops,
@@ -44,11 +47,12 @@ ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/jpg"}
 def vision_status():
     """Returns the operational status, loaded weights, and supported crops of the Vision Agent."""
     model, processor = get_multicrop_model()
-    is_ready = model is not None and processor is not None
+    pytorch_model = get_pytorch_model()
+    is_ready = (model is not None and processor is not None) or pytorch_model is not None
 
     crops = set()
     conditions = []
-    for meta in CLASS_METADATA.values():
+    for meta in list(CLASS_METADATA.values()) + list(EXTENDED_CROP_ADVISORY.values()):
         crops.add(meta["crop"])
         conditions.append({
             "crop": meta["crop"],
@@ -61,8 +65,10 @@ def vision_status():
     return {
         "status": "ready" if is_ready else "weights_missing",
         "backend": settings.VISION_BACKEND,
-        "model_architecture": "MobileNetV2 fine-tuned on PlantVillage",
-        "total_supported_classes": len(CLASS_METADATA),
+        "arecanut_model_status": "ready" if pytorch_model is not None else "weights_missing",
+        "multicrop_model_status": "ready" if (model is not None and processor is not None) else "weights_missing",
+        "model_architecture": "MobileNetV2 PlantVillage (38-class) + Arecanut CNN (9-class)",
+        "total_supported_classes": len(CLASS_METADATA) + 9,
         "supported_crops": sorted(list(crops)),
         "conditions": conditions,
     }
@@ -241,8 +247,67 @@ def get_sample_images():
             "filename": "Arecanut_Palm_Leaf_Field.webp",
             "title": "Arecanut Palm Leaf (Out-of-Distribution Demo)",
             "title_kn": "ಅಡಿಕೆ ಮರದ ಗರಿ (ಮಾದರಿ ವ್ಯಾಪ್ತಿ ಪರೀಕ್ಷೆ)",
+        "filename": "Arecanut___mahali_koleroga___sample.jpg",
+            "title": "Arecanut Mahali Koleroga (Fruit Rot)",
+            "title_kn": "ಅಡಿಕೆ ಮಹಾಲಿ / ಕೊಳೆ ರೋಗ",
             "crop": "Arecanut",
-            "condition": "Out-of-Distribution (ICAR-CPCRI Monograph)",
+            "condition": "Mahali / Koleroga (Fruit Rot)",
+            "badge": "Fruit Rot",
+        },
+        {
+            "filename": "Arecanut___yellow_leaf_disease___sample.jpg",
+            "title": "Arecanut Yellow Leaf Disease",
+            "title_kn": "ಅಡಿಕೆ ಹಳದಿ ಎಲೆ ರೋಗ",
+            "crop": "Arecanut",
+            "condition": "Yellow Leaf Disease (YLD)",
+            "badge": "Phytoplasma",
+        },
+        {
+            "filename": "Arecanut___healthy_nut___sample.jpg",
+            "title": "Arecanut Healthy Nut Bunch",
+            "title_kn": "ಅಡಿಕೆ ಆರೋಗ್ಯಕರ ಕಾಯಿ ಗೊಂಚಲು",
+            "crop": "Arecanut",
+            "condition": "Healthy Nut / Bunch",
+            "badge": "Healthy",
+        },
+        {
+            "filename": "Arecanut___healthy_leaf___sample.jpg",
+            "title": "Arecanut Healthy Frond",
+            "title_kn": "ಅಡಿಕೆ ಆರೋಗ್ಯಕರ ಗರಿ",
+            "crop": "Arecanut",
+            "condition": "Healthy Frond / Leaf",
+            "badge": "Healthy",
+        },
+        {
+            "filename": "Arecanut___bud_borer___sample.jpg",
+            "title": "Arecanut Bud Borer",
+            "title_kn": "ಅಡಿಕೆ ಸುಳಿ ಕೊರೆಯುವ ಹುಳು",
+            "crop": "Arecanut",
+            "condition": "Bud Borer / Shoot Borer",
+            "badge": "Insect Pest",
+        },
+        {
+            "filename": "Arecanut___stem_cracking___sample.jpg",
+            "title": "Arecanut Stem Cracking",
+            "title_kn": "ಅಡಿಕೆ ಕಾಂಡದ ಬಿರುಕು",
+            "crop": "Arecanut",
+            "condition": "Stem Cracking / Splitting",
+            "badge": "Physiological",
+        },
+        {
+            "filename": "Arecanut___stem_bleeding___sample.jpg",
+            "title": "Arecanut Stem Bleeding",
+            "title_kn": "ಅಡಿಕೆ ಕಾಂಡದ ಸೋರುವಿಕೆ ರೋಗ",
+            "crop": "Arecanut",
+            "condition": "Stem Bleeding Disease",
+            "badge": "Fungal Rot",
+        },
+        {
+            "filename": "Arecanut_Palm_Leaf_Field.webp",
+            "title": "Arecanut Plantation Field View",
+            "title_kn": "ಅಡಿಕೆ ತೋಟದ ದೃಶ್ಯ",
+            "crop": "Arecanut",
+            "condition": "Plantation View (ICAR-CPCRI Monograph)",
             "badge": "Arecanut Palm",
         },
     ]
@@ -348,7 +413,9 @@ async def detect_disease(
     5. Persists diagnosis history only when linked to an authorized crop block.
     6. Returns enriched bilingual diagnosis, differential diagnosis, and IPM management.
     """
-    block_crop = crop_type
+    block_crop = None
+    if crop_type and crop_type.strip().lower() not in ["auto", "none", "null", "all"]:
+        block_crop = crop_type.strip()
 
     # 1. Ownership verification (when linking to a specific crop block)
     if crop_block_id is not None:
@@ -359,11 +426,12 @@ async def detect_disease(
             )
         _verify_crop_block_ownership(db, str(crop_block_id), str(current_user.id))
 
-        block = db.query(CropBlock).filter(CropBlock.id == str(crop_block_id)).first()
-        if block:
-            block_crop = block.block_name
-            if block.variety:
-                block_crop = f"{block.block_name} ({block.variety})"
+        if not block_crop and (crop_type is None or crop_type.strip().lower() not in ["auto", "none", "null", "all"]):
+            block = db.query(CropBlock).filter(CropBlock.id == str(crop_block_id)).first()
+            if block:
+                block_crop = block.block_name
+                if block.variety:
+                    block_crop = f"{block.block_name} ({block.variety})"
 
     # 2. File validation
     if file.content_type and file.content_type.lower() not in ALLOWED_MIME_TYPES:
@@ -386,16 +454,26 @@ async def detect_disease(
             detail=f"Uploaded file exceeds maximum limit of {max_size // (1024 * 1024)} MB.",
         )
 
-    # 3. Verify image decodability
+    # 3. Verify image decodability & extract dimensions
+    img_hash = hashlib.sha256(image_bytes).hexdigest()[:16]
+    img_width, img_height, img_format = 0, 0, "Unknown"
     try:
         with Image.open(io.BytesIO(image_bytes)) as img:
             img.verify()
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            img_width, img_height, img_format = img.width, img.height, img.format or "JPEG"
     except (UnidentifiedImageError, Exception) as e:
         logger.warning(f"Corrupted or invalid image upload rejected: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Corrupted or unreadable image file. Please upload a valid photograph.",
         )
+
+    logger.info(
+        f"[VisionAPI] Processing upload: filename='{file.filename}', hash={img_hash}, "
+        f"dimensions={img_width}x{img_height}, format={img_format}, size={len(image_bytes)} bytes, "
+        f"crop_type='{crop_type}', block_crop='{block_crop}'"
+    )
 
     # 4. Run real inference in async worker thread
     try:
