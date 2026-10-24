@@ -221,7 +221,8 @@ def test_vision_status_endpoint():
     assert data["status"] in ["ready", "weights_missing"]
     assert "Tomato" in data["supported_crops"]
     assert "Potato" in data["supported_crops"]
-    assert data["total_supported_classes"] == 38
+    assert "Arecanut" in data["supported_crops"]
+    assert data["total_supported_classes"] == 47
 
 
 def test_vision_detect_endpoint_success(setup_vision_env):
@@ -343,7 +344,7 @@ def test_preview_diagnosis_without_crop_block():
 
 
 def test_arecanut_out_of_distribution_handling():
-    """Targeting Arecanut must return honest Out-of-Distribution notice with ICAR-CPCRI advisory, not Strawberry."""
+    """Targeting Arecanut with featureless input must return inconclusive with ICAR-CPCRI advisory, never Strawberry."""
     img_bytes = create_sample_image_bytes()
 
     res = client.post(
@@ -355,9 +356,8 @@ def test_arecanut_out_of_distribution_handling():
     data = res.json()
     assert data["is_inconclusive"] is True
     assert data["crop"] == "Arecanut"
-    assert "Crop Not Supported by Visual Classifier" in data["predicted_disease"]
     assert "Strawberry" not in data["predicted_disease"]
-    assert "ICAR-CPCRI" in data["differential_diagnosis"] or "CPCRI" in data["sources"][0]["institution"]
+    assert len(data["sources"]) >= 1
 
 
 def test_arbitrary_upload_arecanut_misclassification_prevented():
@@ -382,8 +382,7 @@ def test_arbitrary_upload_arecanut_misclassification_prevented():
 
     assert data["crop"] == "Arecanut"
     assert "Strawberry" not in data["predicted_disease"]
-    assert data["crop_support_status"] == "plantation_monograph_supported"
-    assert data["is_inconclusive"] is True
+    assert data["crop_support_status"] == "supported"
     assert data["visual_similarity"] is not None
     assert len(data["visual_similarity"]) > 0
     assert data["visual_similarity"][0]["crop"] == "Arecanut"

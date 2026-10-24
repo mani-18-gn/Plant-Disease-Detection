@@ -35,6 +35,46 @@ REFERENCE_METADATA: Dict[str, Dict[str, Any]] = {
         "is_monocot": True,
         "title": "Arecanut Palm Leaf (Karnataka Plantation Benchmark)",
     },
+    "Arecanut___mahali_koleroga___sample.jpg": {
+        "crop": "Arecanut",
+        "crop_kn": "ಅಡಿಕೆ",
+        "condition": "Mahali / Koleroga (Fruit Rot)",
+        "condition_kn": "ಮಹಾಲಿ / ಕೊಳೆ ರೋಗ",
+        "is_healthy": False,
+        "plant_family": "Arecaceae (Palm)",
+        "is_monocot": True,
+        "title": "Arecanut Mahali Koleroga Fruit Rot",
+    },
+    "Arecanut___yellow_leaf_disease___sample.jpg": {
+        "crop": "Arecanut",
+        "crop_kn": "ಅಡಿಕೆ",
+        "condition": "Yellow Leaf Disease (YLD)",
+        "condition_kn": "ಹಳದಿ ಎಲೆ ರೋಗ",
+        "is_healthy": False,
+        "plant_family": "Arecaceae (Palm)",
+        "is_monocot": True,
+        "title": "Arecanut Yellow Leaf Disease Frond",
+    },
+    "Arecanut___healthy_leaf___sample.jpg": {
+        "crop": "Arecanut",
+        "crop_kn": "ಅಡಿಕೆ",
+        "condition": "Healthy Frond / Leaf",
+        "condition_kn": "ಆರೋಗ್ಯಕರ ಗರಿ",
+        "is_healthy": True,
+        "plant_family": "Arecaceae (Palm)",
+        "is_monocot": True,
+        "title": "Arecanut Healthy Foliage",
+    },
+    "Arecanut___healthy_nut___sample.jpg": {
+        "crop": "Arecanut",
+        "crop_kn": "ಅಡಿಕೆ",
+        "condition": "Healthy Nut / Bunch",
+        "condition_kn": "ಆರೋಗ್ಯಕರ ಕಾಯಿ ಗೊಂಚಲು",
+        "is_healthy": True,
+        "plant_family": "Arecaceae (Palm)",
+        "is_monocot": True,
+        "title": "Arecanut Healthy Nut Bunch",
+    },
     "Tomato___Early_blight___0012b9d2-2130-4a06-a834-b1f3af34f57e___RS_Erly.B 8389.JPG": {
         "crop": "Tomato",
         "crop_kn": "ಟೊಮ್ಯಾಟೊ",
@@ -245,9 +285,24 @@ def analyze_plant_species_and_compatibility(
     if not _PROTOTYPE_CACHE:
         warm_prototype_embeddings(model, processor)
 
+    areca_sims = []
+    other_sims = []
+    for fn, ref_emb in _PROTOTYPE_CACHE.items():
+        meta = REFERENCE_METADATA.get(fn, {})
+        try:
+            sim = float(torch.dot(query_embedding.cpu(), ref_emb.cpu()).item())
+            if meta.get("crop") == "Arecanut":
+                areca_sims.append(sim)
+            else:
+                other_sims.append(sim)
+        except Exception:
+            pass
+    areca_similarity = max(areca_sims) if areca_sims else 0.0
+    other_max_sim = max(other_sims) if other_sims else 0.0
+
+    # Also keep single reference for backward compatibility
     areca_ref_emb = _PROTOTYPE_CACHE.get("Arecanut_Palm_Leaf_Field.webp")
-    areca_similarity = 0.0
-    if areca_ref_emb is not None:
+    if not areca_sims and areca_ref_emb is not None:
         areca_similarity = float(torch.dot(query_embedding.cpu(), areca_ref_emb.cpu()).item())
 
     # Check for palm morphology: elongated parallel venation / striations
@@ -270,16 +325,22 @@ def analyze_plant_species_and_compatibility(
     if block_crop:
         b_clean = block_crop.lower().strip()
         is_explicit_areca = any(term in b_clean for term in ["areca", "adike", "supari", "ಅಡಿಕೆ", "palm"])
-
     # High-confidence detection of Arecanut / Palm family
-    # Case 1: Explicit arecanut block requested
-    # Case 2: Visual similarity to arecanut prototype >= 0.65
-    # Case 3: MobileNet predicted "Strawberry" (classic closed-set artifact) but areca_similarity > 0.48 or palm morphology
-    is_arecanut_palm = (
-        is_explicit_areca
-        or areca_similarity >= 0.65
-        or (predicted_38_crop == "Strawberry" and (areca_similarity >= 0.48 or is_palm_morphology))
+    # If the 38-class model is confident on a non-arecanut benchmark crop (e.g. Potato, Tomato, Corn, Grape, Apple),
+    # and visual similarity to other crops significantly exceeds areca similarity, it is not an arecanut palm.
+    is_distinct_38_crop = (
+        predicted_38_crop not in ["", "Unknown", "Strawberry"]
+        and other_max_sim >= areca_similarity + 0.05
     )
+
+    is_arecanut_palm = False
+    if not is_distinct_38_crop:
+        if areca_similarity >= 0.65 and areca_similarity >= other_max_sim - 0.05:
+            is_arecanut_palm = True
+        elif predicted_38_crop == "Strawberry" and (areca_similarity >= 0.45 or is_palm_morphology):
+            is_arecanut_palm = True
+        elif is_explicit_areca and (areca_similarity >= 0.45 or is_palm_morphology):
+            is_arecanut_palm = True
 
     if is_arecanut_palm:
         return {
@@ -287,21 +348,21 @@ def analyze_plant_species_and_compatibility(
             "identified_crop_kn": "ಅಡಿಕೆ",
             "scientific_name": "Areca catechu L.",
             "plant_family": "Arecaceae (Palm)",
-            "is_supported_by_vision_model": False,
-            "crop_support_status": "plantation_monograph_supported",
+            "is_supported_by_vision_model": True,
+            "crop_support_status": "supported",
             "is_arecanut_palm": True,
             "areca_similarity": round(areca_similarity, 4),
             "identification_rationale": (
-                f"Visual embedding similarity ({round(areca_similarity * 100, 1)}%) and monocot frond morphology "
-                "align with Arecanut Palm (Areca catechu L.). Closed-set 38-class PlantVillage model does not contain "
-                "palm frond training weights; routed to verified ICAR-CPCRI plantation monograph."
+                f"Visual embedding similarity ({round(areca_similarity * 100, 1)}%) and morphology "
+                "align with Arecanut Palm (Areca catechu L.). Routed to specialized 9-class PyTorch Arecanut CNN vision model."
             ),
         }
 
     # If not arecanut, verify whether the predicted crop belongs to supported 38-class benchmark
     supported_crops = {
         "Apple", "Blueberry", "Cherry", "Corn (maize)", "Corn (Maize)", "Grape",
-        "Orange", "Peach", "Pepper, bell", "Potato", "Raspberry", "Soybean", "Squash", "Strawberry", "Tomato"
+        "Orange", "Peach", "Pepper, bell", "Potato", "Raspberry", "Soybean", "Squash", "Strawberry", "Tomato",
+        "Chilli", "Pepper", "Capsicum"
     }
 
     is_supported = any(c.lower() in predicted_38_crop.lower() for c in supported_crops)

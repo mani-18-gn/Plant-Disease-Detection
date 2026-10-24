@@ -18,6 +18,7 @@ CRITICAL PRINCIPLES:
 - Low-confidence or out-of-distribution inputs explicitly return Inconclusive / Unsupported.
 """
 
+import hashlib
 import io
 import logging
 from pathlib import Path
@@ -51,7 +52,7 @@ logger = logging.getLogger(__name__)
 MULTICROP_WEIGHTS_DIR = Path(__file__).resolve().parent / "weights" / "multi_crop_mobilenetv2"
 PYTORCH_WEIGHTS_PATH = Path(__file__).resolve().parent / "weights" / "arecanut_cnn.pt"
 
-CONFIDENCE_THRESHOLD = getattr(settings, "VISION_CONFIDENCE_THRESHOLD", 0.40)
+CONFIDENCE_THRESHOLD = getattr(settings, "VISION_CONFIDENCE_THRESHOLD", 0.48)
 
 _multicrop_model = None
 _multicrop_processor = None
@@ -121,9 +122,10 @@ def check_image_quality(image: Image.Image) -> Dict[str, Any]:
     try:
         gray = image.convert("L")
         arr = np.array(gray, dtype=float)
-        # 3x3 Discrete Laplacian kernel filter
-        laplacian_var = float(np.var(arr[1:-1, 1:-1] - arr[:-2, 1:-1] - arr[2:, 1:-1]))
-        if laplacian_var < 20.0:
+        # 3x3 Discrete Laplacian kernel filter: 4*I(x,y) - I(x-1,y) - I(x+1,y) - I(x,y-1) - I(x,y+1)
+        lap = 4 * arr[1:-1, 1:-1] - arr[:-2, 1:-1] - arr[2:, 1:-1] - arr[1:-1, :-2] - arr[1:-1, 2:]
+        laplacian_var = float(np.var(lap))
+        if laplacian_var < 35.0:
             warnings.append("Image appears blurry or out of focus. Please retake a sharper, steady macro photo.")
     except Exception:
         pass
@@ -167,11 +169,17 @@ def validate_plant_plausibility(image: Image.Image) -> Dict[str, Any]:
         exg = 2 * g - r - b
         green_mask = (exg > 0.03) | ((g > r * 0.92) & (g > b * 1.08) & (g > 0.12))
 
-        # 2. Chlorotic yellow / necrotic leaf spot mask (carotenoids / dried tissue)
-        yellow_brown_mask = (r > 0.25) & (g > 0.20) & (b < 0.35) & (r > b * 1.25)
+        # 2. Chlorotic yellow / carotenoid mask (r and g balanced, b suppressed)
+        plant_yellow = (r > 0.20) & (g > 0.20) & (b < 0.38) & (r > b * 1.2) & (abs(r - g) < 0.14)
+
+        # 3. Necrotic dark leaf tissue (dark brown/tan spots)
+        plant_necrotic = (r > 0.15) & (g > 0.10) & (b < 0.25) & (r > b * 1.1) & ((r + g + b) / 3.0 < 0.45)
+
+        # Human skin tone exclusion (skin has high red, low green, r - g > 0.12, r - b > 0.18)
+        skin_mask = (r > 0.35) & (g > 0.20) & (r - g > 0.12) & (r - b > 0.18)
 
         # Combined organic foliage mask
-        foliage_mask = green_mask | yellow_brown_mask
+        foliage_mask = (green_mask | plant_yellow | plant_necrotic) & (~skin_mask)
         coverage_pct = float(np.mean(foliage_mask) * 100.0)
 
         # Minimum plausible threshold: a plant photo must have at least ~7.5% organic plant pixels
@@ -287,6 +295,11 @@ def run_multicrop_vision_inference(
 
     # Run genuine neural network forward pass
     inputs = processor(images=image, return_tensors="pt")
+    img_sha = hashlib.sha256(image_bytes).hexdigest()[:16]
+    logger.info(
+        f"[MulticropInference] Image SHA256: {img_sha} | Dimensions: {image.width}x{image.height} | "
+        f"Model Input Shape: {inputs['pixel_values'].shape} | block_crop='{block_crop}'"
+    )
     with torch.no_grad():
         outputs = model(**inputs)
         logits = outputs.logits
@@ -295,6 +308,14 @@ def run_multicrop_vision_inference(
     # Stage E: Extract top candidates
     k = min(3, len(probabilities))
     top_scores, top_indices = torch.topk(probabilities, k=k)
+
+    # Priority Check 6: Print/log raw scores and logits before mapping to disease names
+    raw_debug = []
+    for s, idx in zip(top_scores, top_indices):
+        idx_v = int(idx.item())
+        c_label = model.config.id2label.get(idx_v) or str(idx_v)
+        raw_debug.append(f"{c_label} (prob={s.item():.4f}, logit={logits[0][idx_v].item():.4f})")
+    logger.info(f"[MulticropInference] Raw Model Output Top-3: {'; '.join(raw_debug)}")
 
     top_1_idx = int(top_indices[0].item())
     top_1_score = round(top_scores[0].item(), 4)
@@ -338,8 +359,14 @@ def run_multicrop_vision_inference(
             break
 
     # If identified as Arecanut Palm (monocot frond morphology or embedding alignment),
-    # prevent false cross-species misdiagnosis (e.g. Strawberry Leaf Scorch artifact)
+    # route directly to specialized PyTorch Arecanut CNN model (preventing Strawberry misdiagnosis)
     if species_info.get("is_arecanut_palm"):
+        areca_model = get_pytorch_model()
+        if areca_model is not None:
+            areca_result = run_pytorch_vision_inference(image_bytes, block_crop=block_crop)
+            areca_result["visual_similarity"] = visual_similarities
+            return areca_result
+
         areca_research = INSTITUTIONAL_FALLBACKS.get("arecanut", [])
         return {
             "predicted_disease": "Crop Not Supported by Visual Classifier (Arecanut Palm)",
@@ -453,40 +480,120 @@ def run_multicrop_vision_inference(
     effective_threshold = CONFIDENCE_THRESHOLD + quality_penalty
     is_inconclusive = top_1_score < effective_threshold
 
+    # If crop block is specified and there's a strong cross-species mismatch with borderline confidence, mark inconclusive
+    if not crop_match and top_1_score < 0.65:
+        is_inconclusive = True
+
     if is_inconclusive:
-        predicted_disease = "Inconclusive"
+        predicted_disease = "Inconclusive / Low Statistical Confidence"
+        res_crop = "Unverified Crop"
+        res_crop_kn = "ಅನಿಶ್ಚಿತ ಬೆಳೆ"
+        res_condition = "Inconclusive / Low Statistical Confidence"
+        res_condition_kn = "ಅನಿಶ್ಚಿತ / ಕಡಿಮೆ ವಿಶ್ವಾಸಾರ್ಹತೆ"
+        res_causal_agent = None
+        res_symptoms = (
+            "The visual characteristics in the photograph cannot be matched to a known crop disease category "
+            "with sufficient statistical confidence. To prevent crop damage, disease-specific symptoms and "
+            "chemical recommendations are strictly withheld."
+        )
+        res_symptoms_kn = (
+            "ಚಿತ್ರದ ಲಕ್ಷಣಗಳನ್ನು ಖಚಿತವಾಗಿ ಗುರುತಿಸಲು ಮಾದರಿಯ ವಿಶ್ವಾಸಾರ್ಹತೆ ಸಾಲದು. "
+            "ಬೆಳೆ ಹಾನಿಯನ್ನು ತಡೆಯಲು ನಿರ್ದಿಷ್ಟ ರೋಗ ಸಲಹೆ ಮತ್ತು ರಾಸಾಯನಿಕ ಶಿಫಾರಸುಗಳನ್ನು ತಡೆಹಿಡಿಯಲಾಗಿದೆ."
+        )
+        res_diff = (
+            "Statistical confidence is below safety thresholds. "
+            "Please inspect the leaf in person or retake a sharp, macro-focused photograph in daylight."
+        )
+        res_diff_kn = (
+            "ವಿಶ್ವಾಸಾರ್ಹತೆ ಕಡಿಮೆಯಿದೆ. ದಯವಿಟ್ಟು ನೈಸರ್ಗಿಕ ಬೆಳಕಿನಲ್ಲಿ ಸ್ಪಷ್ಟ, ಕೇಂದ್ರೀಕೃತ ಫೋಟೋ ತೆಗೆಯಿರಿ."
+        )
+        res_favorable = "N/A"
+        res_favorable_kn = "ಅನ್ವಯಿಸುವುದಿಲ್ಲ"
+        res_prev = (
+            "1. Capture a clear, well-focused close-up photograph of a single symptomatic leaf in diffuse natural daylight.\n"
+            "2. Ensure the leaf fills at least 50% of the frame without motion blur or reflective glare.\n"
+            "3. If symptoms persist, take a fresh sample to your nearest Krishi Vigyan Kendra (KVK)."
+        )
+        res_prev_kn = (
+            "1. ರೋಗಪೀಡಿತ ಎಲೆಯ ಸ್ಪಷ್ಟ, ಹತ್ತಿರದ ಫೋಟೋವನ್ನು ನೈಸರ್ಗಿಕ ಬೆಳಕಿನಲ್ಲಿ ತೆಗೆಯಿರಿ.\n"
+            "2. ನೆರಳು ಅಥವಾ ಮಿಂಚು ಇಲ್ಲದಂತೆ ನೋಡಿಕೊಳ್ಳಿ.\n"
+            "3. ಎಲೆ ಫೋಟೋದ ಮಧ್ಯಭಾಗದಲ್ಲಿರಲಿ.\n"
+            "4. ಹತ್ತಿರದ ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರ (KVK) ಅಥವಾ ತೋಟಗಾರಿಕಾ ಇಲಾಖೆಯನ್ನು ಸಂಪರ್ಕಿಸಿ."
+        )
+        res_cult = (
+            "Inspect affected plants directly. Quarantine leaves showing severe necrosis to prevent potential pathogen spread."
+        )
+        res_cult_kn = "ಬಾಧಿತ ಸಸ್ಯಗಳನ್ನು ನೇರವಾಗಿ ಪರಿಶೀಲಿಸಿ. ರೋಗ ಹರಡದಂತೆ ಮುನ್ನೆಚ್ಚರಿಕೆ ವಹಿಸಿ."
+        res_chem = (
+            "DO NOT apply synthetic fungicides or chemical pesticides without a verified diagnosis. "
+            "Indiscriminate chemical spraying can cause phytotoxicity, unnecessary economic loss, and environmental contamination."
+        )
+        res_chem_kn = (
+            "ಖಚಿತ ರೋಗ ನಿರ್ಧಾರವಿಲ್ಲದೆ ಯಾವುದೇ ರಾಸಾಯನಿಕ ಕೀಟನಾಶಕ ಅಥವಾ ಶಿಲೀಂಧ್ರನಾಶಕಗಳನ್ನು ಸಿಂಪಡಿಸಬೇಡಿ. "
+            "ಅತಿಯಾದ ಸಿಂಪಡಣೆ ಬೆಳೆಗೆ ಹಾನಿ ಉಂಟುಮಾಡಬಹುದು."
+        )
+        res_warn = (
+            "LOW CONFIDENCE WARNING: Automated neural prediction confidence is insufficient for safe chemical intervention. "
+            "Chemical advice is withheld to protect your crop."
+        )
+        res_warn_kn = (
+            "ಕಡಿಮೆ ವಿಶ್ವಾಸಾರ್ಹತೆಯ ಎಚ್ಚರಿಕೆ: ಸುರಕ್ಷಿತ ನಿರ್ಧಾರಕ್ಕಾಗಿ ನಿಖರತೆ ಸಾಲದು. ಬೆಳೆ ರಕ್ಷಣೆಗಾಗಿ ರಾಸಾಯನಿಕ ಶಿಫಾರಸುಗಳನ್ನು ತಡೆಹಿಡಿಯಲಾಗಿದೆ."
+        )
+        res_mgmt = "Retake a clear photograph in natural daylight, or consult a local agricultural officer before spraying any chemicals."
+        res_mgmt_kn = "ನೈಸರ್ಗಿಕ ಬೆಳಕಿನಲ್ಲಿ ಸ್ಪಷ್ಟ ಫೋಟೋ ಮರು-ಅಪ್‌ಲೋಡ್ ಮಾಡಿ, ಅಥವಾ ಕೃಷಿ ಅಧಿಕಾರಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ."
     else:
         predicted_disease = f"{predicted_crop} - {predicted_condition}" if predicted_crop else predicted_condition
+        res_crop = predicted_crop
+        res_crop_kn = advisory.get("crop_kn")
+        res_condition = predicted_condition
+        res_condition_kn = advisory.get("condition_kn")
+        res_causal_agent = advisory.get("causal_agent")
+        res_symptoms = advisory.get("symptoms", "")
+        res_symptoms_kn = advisory.get("symptoms_kn")
+        res_diff = advisory.get("differential_diagnosis")
+        res_diff_kn = advisory.get("differential_diagnosis_kn")
+        res_favorable = advisory.get("favorable_conditions")
+        res_favorable_kn = advisory.get("favorable_conditions_kn")
+        res_prev = advisory.get("preventive_practices")
+        res_prev_kn = advisory.get("preventive_practices_kn")
+        res_cult = advisory.get("cultural_biological_management")
+        res_cult_kn = advisory.get("cultural_biological_management_kn")
+        res_chem = advisory.get("chemical_management")
+        res_chem_kn = advisory.get("chemical_management_kn")
+        res_warn = advisory.get("expert_warning")
+        res_warn_kn = advisory.get("expert_warning_kn")
+        res_mgmt = advisory.get("chemical_management") or advisory.get("cultural_biological_management") or advisory.get("preventive_practices", "")
+        res_mgmt_kn = advisory.get("chemical_management_kn") or advisory.get("cultural_biological_management_kn") or advisory.get("preventive_practices_kn", "")
 
     # Stage G & H: Return enriched result
     return {
         "predicted_disease": predicted_disease,
         "confidence": top_1_score,
         "inconclusive": is_inconclusive,
-        "crop": predicted_crop,
-        "crop_kn": advisory.get("crop_kn"),
-        "scientific_name": advisory.get("scientific_name"),
-        "condition": predicted_condition,
-        "condition_kn": advisory.get("condition_kn"),
-        "affected_parts": advisory.get("affected_parts", ["Leaves"]),
-        "is_healthy": advisory.get("is_healthy", False),
-        "causal_agent": advisory.get("causal_agent"),
-        "symptoms": advisory.get("symptoms", ""),
-        "symptoms_kn": advisory.get("symptoms_kn"),
-        "differential_diagnosis": advisory.get("differential_diagnosis"),
-        "differential_diagnosis_kn": advisory.get("differential_diagnosis_kn"),
-        "favorable_conditions": advisory.get("favorable_conditions"),
-        "favorable_conditions_kn": advisory.get("favorable_conditions_kn"),
-        "preventive_practices": advisory.get("preventive_practices"),
-        "preventive_practices_kn": advisory.get("preventive_practices_kn"),
-        "cultural_biological_management": advisory.get("cultural_biological_management"),
-        "cultural_biological_management_kn": advisory.get("cultural_biological_management_kn"),
-        "chemical_management": advisory.get("chemical_management"),
-        "chemical_management_kn": advisory.get("chemical_management_kn"),
-        "expert_warning": advisory.get("expert_warning"),
-        "expert_warning_kn": advisory.get("expert_warning_kn"),
-        "management": advisory.get("chemical_management") or advisory.get("cultural_biological_management") or advisory.get("preventive_practices", ""),
-        "management_kn": advisory.get("chemical_management_kn") or advisory.get("cultural_biological_management_kn") or advisory.get("preventive_practices_kn", ""),
+        "crop": res_crop,
+        "crop_kn": res_crop_kn,
+        "scientific_name": advisory.get("scientific_name") if not is_inconclusive else None,
+        "condition": res_condition,
+        "condition_kn": res_condition_kn,
+        "affected_parts": advisory.get("affected_parts", ["Leaves"]) if not is_inconclusive else [],
+        "is_healthy": advisory.get("is_healthy", False) if not is_inconclusive else False,
+        "causal_agent": res_causal_agent,
+        "symptoms": res_symptoms,
+        "symptoms_kn": res_symptoms_kn,
+        "differential_diagnosis": res_diff,
+        "differential_diagnosis_kn": res_diff_kn,
+        "favorable_conditions": res_favorable,
+        "favorable_conditions_kn": res_favorable_kn,
+        "preventive_practices": res_prev,
+        "preventive_practices_kn": res_prev_kn,
+        "cultural_biological_management": res_cult,
+        "cultural_biological_management_kn": res_cult_kn,
+        "chemical_management": res_chem,
+        "chemical_management_kn": res_chem_kn,
+        "expert_warning": res_warn,
+        "expert_warning_kn": res_warn_kn,
+        "management": res_mgmt,
+        "management_kn": res_mgmt_kn,
         "sources": advisory.get("sources", []),
         "top_predictions": top_predictions,
         "raw_class": raw_class,
@@ -501,7 +608,7 @@ def run_multicrop_vision_inference(
         "crop_support_status": species_info.get("crop_support_status", "supported"),
         "identification_rationale": species_info.get("identification_rationale"),
         "visual_similarity": visual_similarities,
-        "online_research": default_research,
+        "online_research": default_research if not is_inconclusive else [],
     }
 
 
@@ -511,97 +618,354 @@ def get_pytorch_model():
     if _pytorch_model_cache is not None:
         return _pytorch_model_cache
 
-    if PYTORCH_WEIGHTS_PATH.exists():
+    candidates = [
+        PYTORCH_WEIGHTS_PATH,
+        Path(__file__).resolve().parent / "weights" / "arecanut_cnn.pt",
+        Path(r"C:\major project\Areca-Agent\backend\agents\vision\weights\arecanut_cnn.pt"),
+        Path(r"C:\Users\admin\.gemini\antigravity-ide\scratch\Plant-Disease-Detection\backend\agents\vision\weights\arecanut_cnn.pt"),
+    ]
+    resolved_path = None
+    for cand in candidates:
+        if cand.exists():
+            resolved_path = cand
+            break
+
+    if resolved_path:
         try:
             from backend.agents.vision.model import ArecanutCNN, CLASS_NAMES
             model = ArecanutCNN(num_classes=len(CLASS_NAMES), pretrained=False)
-            model.load_state_dict(torch.load(PYTORCH_WEIGHTS_PATH, map_location="cpu"))
+            model.load_state_dict(torch.load(resolved_path, map_location="cpu"))
             model.eval()
             _pytorch_model_cache = model
+            logger.info(f"Loaded PyTorch Arecanut CNN model from {resolved_path}")
             return _pytorch_model_cache
         except Exception as e:
-            logger.warning(f"Failed to load PyTorch Vision model checkpoint: {e}")
+            logger.warning(f"Failed to load PyTorch Vision model checkpoint from {resolved_path}: {e}")
             return None
     return None
 
 
 def run_pytorch_vision_inference(image_bytes: bytes, block_crop: Optional[str] = None) -> Dict[str, Any]:
     """
-    Run disease prediction using the PyTorch arecanut CNN model if weights exist.
-    Never returns hardcoded or fabricated results.
+    Run 8-stage disease diagnosis pipeline using the specialized 9-class PyTorch Arecanut CNN model.
+    Applies exact preprocessing (Resize 224x224, eval_transform), quality checks,
+    foliage plausibility, uncertainty thresholding, and ICAR-CPCRI agronomic advisory.
     """
     from backend.agents.vision.model import CLASS_NAMES
-    from backend.agents.vision.preprocess import preprocess_image_bytes
+    from backend.agents.vision.preprocess import eval_transform
 
+    # Stage A: Decode and check quality
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    except (UnidentifiedImageError, Exception) as e:
+        raise ValueError(f"Corrupted or unreadable image file: {e}")
+
+    quality_info = check_image_quality(image)
+
+    # Blur check (Requirement 6)
+    is_blurry = False
+    for warn in quality_info.get("quality_warnings", []):
+        if "blurry" in warn.lower() or "focus" in warn.lower():
+            is_blurry = True
+            break
+
+    # Stage B: Plant & Foliage Plausibility Verification
+    plausibility = validate_plant_plausibility(image)
+    if not plausibility["is_plant"]:
+        advisory = INCONCLUSIVE_ADVICE
+        return {
+            "predicted_disease": "Inconclusive - Non-Plant Subject",
+            "confidence": 0.0,
+            "inconclusive": True,
+            "crop": "Non-Plant / Unrecognized",
+            "crop_kn": "ಸಸ್ಯವಲ್ಲದ ಚಿತ್ರ",
+            "scientific_name": None,
+            "condition": "Non-Plant Subject Detected",
+            "condition_kn": "ಸಸ್ಯದ ಲಕ್ಷಣಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+            "affected_parts": [],
+            "is_healthy": False,
+            "causal_agent": None,
+            "symptoms": (
+                "The uploaded image does not appear to contain organic plant foliage or leaves. "
+                f"Detected vegetative coverage is only {plausibility.get('plant_coverage_pct', 0)}%. "
+                "Please upload a close-up photograph of a diseased or healthy plant leaf in daylight."
+            ),
+            "symptoms_kn": "ಅಪ್‌ಲೋಡ್ ಮಾಡಿದ ಫೋಟೋದಲ್ಲಿ ಗಿಡದ ಎಲೆಗಳು ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ಕೃಷಿ ಬೆಳೆಯ ಎಲೆಯ ಸ್ಪಷ್ಟ ಫೋಟೋವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
+            "differential_diagnosis": "No plant tissue detected to formulate differential diagnosis.",
+            "differential_diagnosis_kn": "ಸಸ್ಯದ ಅಂಗಾಂಶ ಕಂಡುಬಂದಿಲ್ಲ.",
+            "favorable_conditions": "N/A",
+            "favorable_conditions_kn": "ಅನ್ವಯಿಸುವುದಿಲ್ಲ",
+            "preventive_practices": "Capture a clear, well-focused macro photograph of the crop leaf.",
+            "preventive_practices_kn": "ಬೆಳೆಯ ಎಲೆಯ ಸ್ಪಷ್ಟ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
+            "cultural_biological_management": "Ensure camera lens is clean and centered on a single leaf.",
+            "cultural_biological_management_kn": "ಕ್ಯಾಮೆರಾ ಎಲೆಯ ಮೇಲೆ ಕೇಂದ್ರೀಕೃತವಾಗಿರಲಿ.",
+            "chemical_management": "Do NOT spray chemicals on an unrecognized subject.",
+            "chemical_management_kn": "ಯಾವುದೇ ರಾಸಾಯನಿಕ ಸಿಂಪಡಿಸಬೇಡಿ.",
+            "expert_warning": "INVALID INPUT: Please upload an authentic photograph of an agricultural crop leaf for pathology assessment.",
+            "expert_warning_kn": "ಅಮಾನ್ಯ ಫೋಟೋ: ದಯವಿಟ್ಟು ಕೃಷಿ ಬೆಳೆಯ ಎಲೆಯ ನೈಜ ಫೋಟೋವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
+            "management": "Please upload a clear photograph of a plant leaf.",
+            "management_kn": "ದಯವಿಟ್ಟು ಗಿಡದ ಎಲೆಯ ಸ್ಪಷ್ಟ ಫೋಟೋವನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
+            "sources": advisory.get("sources", []),
+            "top_predictions": [],
+            "raw_class": "non_plant",
+            "model_architecture": "MobileNetV2 Arecanut CNN (9-class)",
+            "backend": "pytorch",
+            "image_quality": quality_info,
+            "is_plant": False,
+            "plant_coverage_pct": plausibility.get("plant_coverage_pct"),
+            "plausibility_note": plausibility.get("plausibility_note"),
+            "crop_match": False,
+            "crop_mismatch_warning": "Uploaded photograph does not contain plant foliage.",
+        }
+
+    # Model retrieval
     model = get_pytorch_model()
     if model is None:
         raise ModelNotAvailableError(
-            "PyTorch arecanut CNN weights (arecanut_cnn.pt) are missing or failed to load. "
-            "Fabricated predictions are strictly prohibited."
+            "PyTorch Arecanut CNN model checkpoint (arecanut_cnn.pt) is missing or failed to load. "
+            "Please verify weights are present in backend/agents/vision/weights/arecanut_cnn.pt."
         )
 
-    tensor = preprocess_image_bytes(image_bytes)
-
-    with torch.no_grad():
-        outputs = model(tensor)
-        probabilities = F.softmax(outputs, dim=1)[0]
-        max_score, max_idx = torch.max(probabilities, dim=0)
-
-        confidence = round(max_score.item(), 4)
-        predicted_class = CLASS_NAMES[int(max_idx.item())]
-        is_inconclusive = confidence < 0.70
-
-        advisory = get_diagnosis_advisory(raw_label=predicted_class)
-
+    # Blurry image handling (Requirement 6)
+    if is_blurry:
+        advisory = INCONCLUSIVE_ADVICE
         return {
-            "predicted_disease": "Inconclusive" if is_inconclusive else predicted_class,
-            "confidence": confidence,
-            "inconclusive": is_inconclusive,
+            "predicted_disease": "Inconclusive - Blurry Image",
+            "confidence": 0.0,
+            "inconclusive": True,
             "crop": "Arecanut",
             "crop_kn": "ಅಡಿಕೆ",
             "scientific_name": "Areca catechu",
-            "condition": advisory.get("condition", predicted_class),
-            "condition_kn": advisory.get("condition_kn"),
-            "affected_parts": advisory.get("affected_parts", ["Crown", "Fruit"]),
-            "is_healthy": "healthy" in predicted_class.lower(),
-            "causal_agent": advisory.get("causal_agent"),
-            "symptoms": advisory.get("symptoms", ""),
-            "symptoms_kn": advisory.get("symptoms_kn"),
-            "differential_diagnosis": advisory.get("differential_diagnosis"),
-            "differential_diagnosis_kn": advisory.get("differential_diagnosis_kn"),
-            "favorable_conditions": advisory.get("favorable_conditions"),
-            "favorable_conditions_kn": advisory.get("favorable_conditions_kn"),
-            "preventive_practices": advisory.get("preventive_practices"),
-            "preventive_practices_kn": advisory.get("preventive_practices_kn"),
-            "cultural_biological_management": advisory.get("cultural_biological_management"),
-            "cultural_biological_management_kn": advisory.get("cultural_biological_management_kn"),
-            "chemical_management": advisory.get("chemical_management"),
-            "chemical_management_kn": advisory.get("chemical_management_kn"),
-            "expert_warning": advisory.get("expert_warning"),
-            "expert_warning_kn": advisory.get("expert_warning_kn"),
-            "management": advisory.get("chemical_management") or advisory.get("cultural_biological_management", ""),
-            "management_kn": advisory.get("chemical_management_kn") or advisory.get("cultural_biological_management_kn", ""),
+            "condition": "Inconclusive (Image Blurry or Out of Focus)",
+            "condition_kn": "ಅನಿಶ್ಚಿತ (ಫೋಟೋ ಮಸುಕಾಗಿದೆ)",
+            "affected_parts": ["Foliage"],
+            "is_healthy": False,
+            "causal_agent": None,
+            "symptoms": "The uploaded photograph is blurry, out of focus, or shaken. Reliable pathology assessment cannot be made.",
+            "symptoms_kn": "ಫೋಟೋ ಮಸುಕಾಗಿದ್ದು ಸ್ಪಷ್ಟವಾಗಿಲ್ಲ. ನಿಖರ ರೋಗ ನಿರ್ಧಾರಕ್ಕೆ ದಯವಿಟ್ಟು ಸ್ಪಷ್ಟ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
+            "differential_diagnosis": "Image sharpness insufficient for differential diagnosis.",
+            "differential_diagnosis_kn": "ಸ್ಪಷ್ಟತೆ ಕೊರತೆಯಿಂದ ರೋಗ ನಿರ್ಧಾರ ಸಾಧ್ಯವಿಲ್ಲ.",
+            "favorable_conditions": "N/A",
+            "favorable_conditions_kn": "ಅನ್ವಯಿಸುವುದಿಲ್ಲ",
+            "preventive_practices": "Hold camera steady, clean lens, and use diffuse daylight for crisp focus.",
+            "preventive_practices_kn": "ಕ್ಯಾಮೆರಾ ಅಲುಗಾಡದಂತೆ ಹಿಡಿದು, ನೈಸರ್ಗಿಕ ಬೆಳಕಿನಲ್ಲಿ ಸ್ಪಷ್ಟ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
+            "cultural_biological_management": "Inspect palm in person.",
+            "cultural_biological_management_kn": "ನೇರವಾಗಿ ಪರಿಶೀಲಿಸಿ.",
+            "chemical_management": "Do NOT apply chemicals on unconfirmed blurry observations.",
+            "chemical_management_kn": "ಸ್ಪಷ್ಟತೆಯಿಲ್ಲದೆ ರಾಸಾಯನಿಕ ಬಳಸಬೇಡಿ.",
+            "expert_warning": "Retake a sharp, macro-focused photograph of the affected arecanut leaf, nut, or trunk.",
+            "expert_warning_kn": "ಅಡಿಕೆ ಮರದ ಬಾಧಿತ ಭಾಗದ ಸ್ಪಷ್ಟ ಫೋಟೋವನ್ನು ಮರು-ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
+            "management": "Retake a clear, well-lit photo.",
+            "management_kn": "ಸ್ಪಷ್ಟ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
             "sources": advisory.get("sources", []),
-            "top_predictions": [{"crop": "Arecanut", "condition": predicted_class, "confidence": confidence}],
+            "top_predictions": [],
+            "raw_class": "blurry_image",
+            "model_architecture": "MobileNetV2 Arecanut CNN (9-class)",
             "backend": "pytorch",
+            "image_quality": quality_info,
             "is_plant": True,
+            "plant_coverage_pct": plausibility.get("plant_coverage_pct"),
+            "plausibility_note": plausibility.get("plausibility_note"),
             "crop_match": True,
+            "crop_mismatch_warning": None,
         }
+
+    # Stage D: Preprocessing - EXACT training eval_transform
+    tensor = eval_transform(image).unsqueeze(0)
+    img_sha = hashlib.sha256(image_bytes).hexdigest()[:16]
+    logger.info(
+        f"[ArecanutInference] Image SHA256: {img_sha} | Dimensions: {image.width}x{image.height} | "
+        f"Input Tensor Shape: {tensor.shape} | block_crop='{block_crop}'"
+    )
+
+    # Model inference
+    with torch.no_grad():
+        outputs = model(tensor)
+        probabilities = F.softmax(outputs, dim=-1)[0]
+
+    # Top candidates
+    k = min(3, len(probabilities))
+    top_scores, top_indices = torch.topk(probabilities, k=k)
+
+    # Priority Check 6: Print/log raw scores and logits before mapping to disease names
+    raw_debug = []
+    for s, idx in zip(top_scores, top_indices):
+        idx_v = int(idx.item())
+        c_label = CLASS_NAMES[idx_v]
+        raw_debug.append(f"{c_label} (prob={s.item():.4f}, logit={outputs[0][idx_v].item():.4f})")
+    logger.info(f"[ArecanutInference] Raw Model Output Top-3: {'; '.join(raw_debug)}")
+
+    top_1_score = round(top_scores[0].item(), 4)
+    top_1_idx = int(top_indices[0].item())
+    predicted_class = CLASS_NAMES[top_1_idx]
+
+    top_predictions = []
+    for score, idx in zip(top_scores, top_indices):
+        idx_val = int(idx.item())
+        cls_name = CLASS_NAMES[idx_val]
+        adv_item = get_diagnosis_advisory(raw_label=cls_name)
+        top_predictions.append({
+            "crop": "Arecanut",
+            "crop_kn": "ಅಡಿಕೆ",
+            "condition": adv_item.get("condition", cls_name),
+            "condition_kn": adv_item.get("condition_kn"),
+            "is_healthy": adv_item.get("is_healthy", "healthy" in cls_name.lower()),
+            "confidence": round(score.item(), 4),
+            "raw_class": cls_name,
+        })
+
+    # Confidence Thresholding & Inconclusive evaluation (Requirement 6)
+    quality_penalty = 0.05 if not quality_info["quality_ok"] else 0.0
+    effective_threshold = CONFIDENCE_THRESHOLD + quality_penalty
+    is_inconclusive = top_1_score < effective_threshold
+
+    advisory = get_diagnosis_advisory(raw_label=predicted_class)
+    predicted_crop = "Arecanut"
+    condition = advisory.get("condition", predicted_class)
+
+    # Crop block match verification
+    crop_match = True
+    crop_mismatch_warning = None
+    if block_crop:
+        b_clean = block_crop.lower().strip()
+        is_areca_block = any(term in b_clean for term in ["areca", "adike", "supari", "ಅಡಿಕೆ", "palm"])
+        if not is_areca_block:
+            crop_match = False
+            crop_mismatch_warning = (
+                f"Selected Crop Block is '{block_crop}', but Arecanut model is analyzing this specimen. "
+                "For non-arecanut crops, please review the multi-crop diagnostic models."
+            )
+
+    if is_inconclusive:
+        predicted_disease = "Inconclusive / Low Statistical Confidence"
+        res_condition = "Inconclusive / Low Statistical Confidence"
+        res_condition_kn = "ಅನಿಶ್ಚಿತ / ಕಡಿಮೆ ವಿಶ್ವಾಸಾರ್ಹತೆ"
+        res_causal_agent = None
+        res_symptoms = (
+            "Visual characteristics on this arecanut specimen cannot be determined with sufficient statistical confidence. "
+            "To prevent crop injury, chemical advice is strictly withheld."
+        )
+        res_symptoms_kn = (
+            "ಅಡಿಕೆ ಮರದ ಲಕ್ಷಣಗಳನ್ನು ಖಚಿತವಾಗಿ ಗುರುತಿಸಲು ಮಾದರಿಯ ವಿಶ್ವಾಸಾರ್ಹತೆ ಸಾಲದು. "
+            "ಬೆಳೆ ರಕ್ಷಣೆಗಾಗಿ ನಿರ್ದಿಷ್ಟ ರೋಗ ಸಲಹೆ ಮತ್ತು ರಾಸಾಯನಿಕ ಶಿಫಾರಸುಗಳನ್ನು ತಡೆಹಿಡಿಯಲಾಗಿದೆ."
+        )
+        res_diff = "Confidence is below safety threshold. Please inspect the palm in person or retake a macro-focused photo in diffuse daylight."
+        res_diff_kn = "ವಿಶ್ವಾಸಾರ್ಹತೆ ಕಡಿಮೆಯಿದೆ. ದಯವಿಟ್ಟು ನೈಸರ್ಗಿಕ ಬೆಳಕಿನಲ್ಲಿ ಸ್ಪಷ್ಟ ಫೋಟೋ ತೆಗೆಯಿರಿ."
+        res_favorable = "N/A"
+        res_favorable_kn = "ಅನ್ವಯಿಸುವುದಿಲ್ಲ"
+        res_prev = (
+            "1. Capture a clear, macro-focused photograph of the affected nut, frond, or stem.\n"
+            "2. Prophylactic 1% Bordeaux mixture spraying on nut bunches before southwest monsoon.\n"
+            "3. Ensure 1-meter deep drainage channels to prevent water stagnation."
+        )
+        res_prev_kn = (
+            "1. ಅಡಿಕೆ ಕಾಯಿ ಅಥವಾ ಗರಿಯ ಸ್ಪಷ್ಟ ಫೋಟೋ ತೆಗೆಯಿರಿ.\n"
+            "2. ಮುಂಗಾರಿಗೆ ಮುನ್ನ ಶೇ. 1ರ ಬೋರ್ಡೋ ಸಿಂಪಡಿಸಿ.\n"
+            "3. ಬಸಿಗಾಲುವೆ ನಿರ್ಮಿಸಿ."
+        )
+        res_cult = "Inspect palm directly. Apply 5 kg neem cake + 50 g Trichoderma harzianum per palm annually."
+        res_cult_kn = "ಪ್ರತಿ ಮರಕ್ಕೆ 5 ಕೆಜಿ ಬೇವಿನ ಹಿಂಡಿ ಮತ್ತು 50 ಗ್ರಾಂ ಟ್ರೈಕೋಡರ್ಮಾ ನೀಡಿ."
+        res_chem = (
+            "DO NOT apply synthetic fungicides or chemical pesticides without a verified physical diagnosis. "
+            "Indiscriminate spraying causes crop damage and financial loss."
+        )
+        res_chem_kn = "ಖಚಿತತೆಯಿಲ್ಲದೆ ಯಾವುದೇ ರಾಸಾಯನಿಕ ಸಿಂಪಡಿಸಬೇಡಿ. ಐಸಿಎಆರ್-ಸಿಪಿಸಿಆರ್‌ಐ ಅಥವಾ ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರದ ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ."
+        res_warn = "LOW CONFIDENCE: Automated arecanut assessment is below confidence threshold. Chemical intervention suppressed."
+        res_warn_kn = "ಕಡಿಮೆ ವಿಶ್ವಾಸಾರ್ಹತೆ: ಸುರಕ್ಷಿತ ನಿರ್ಧಾರಕ್ಕಾಗಿ ನಿಖರತೆ ಸಾಲದು. ರಾಸಾಯನಿಕ ಶಿಫಾರಸುಗಳನ್ನು ತಡೆಹಿಡಿಯಲಾಗಿದೆ."
+        res_mgmt = "Physical inspection recommended before chemical application."
+        res_mgmt_kn = "ರಾಸಾಯನಿಕ ಬಳಸುವ ಮುನ್ನ ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ."
+    else:
+        predicted_disease = f"{predicted_crop} - {condition}"
+        res_condition = condition
+        res_condition_kn = advisory.get("condition_kn")
+        res_causal_agent = advisory.get("causal_agent")
+        res_symptoms = advisory.get("symptoms", "")
+        res_symptoms_kn = advisory.get("symptoms_kn")
+        res_diff = advisory.get("differential_diagnosis")
+        res_diff_kn = advisory.get("differential_diagnosis_kn")
+        res_favorable = advisory.get("favorable_conditions")
+        res_favorable_kn = advisory.get("favorable_conditions_kn")
+        res_prev = advisory.get("preventive_practices")
+        res_prev_kn = advisory.get("preventive_practices_kn")
+        res_cult = advisory.get("cultural_biological_management")
+        res_cult_kn = advisory.get("cultural_biological_management_kn")
+        res_chem = advisory.get("chemical_management")
+        res_chem_kn = advisory.get("chemical_management_kn")
+        res_warn = advisory.get("expert_warning")
+        res_warn_kn = advisory.get("expert_warning_kn")
+        res_mgmt = advisory.get("chemical_management") or advisory.get("cultural_biological_management") or advisory.get("preventive_practices", "")
+        res_mgmt_kn = advisory.get("chemical_management_kn") or advisory.get("cultural_biological_management_kn") or advisory.get("preventive_practices_kn", "")
+
+    areca_research = INSTITUTIONAL_FALLBACKS.get("arecanut", [])
+
+    return {
+        "predicted_disease": predicted_disease,
+        "confidence": top_1_score,
+        "inconclusive": is_inconclusive,
+        "crop": predicted_crop,
+        "crop_kn": advisory.get("crop_kn", "ಅಡಿಕೆ"),
+        "scientific_name": advisory.get("scientific_name", "Areca catechu L."),
+        "condition": res_condition,
+        "condition_kn": res_condition_kn,
+        "affected_parts": advisory.get("affected_parts", ["Crown", "Fruit", "Fronds", "Stem"]) if not is_inconclusive else [],
+        "is_healthy": advisory.get("is_healthy", "healthy" in predicted_class.lower()) if not is_inconclusive else False,
+        "causal_agent": res_causal_agent,
+        "symptoms": res_symptoms,
+        "symptoms_kn": res_symptoms_kn,
+        "differential_diagnosis": res_diff,
+        "differential_diagnosis_kn": res_diff_kn,
+        "favorable_conditions": res_favorable,
+        "favorable_conditions_kn": res_favorable_kn,
+        "preventive_practices": res_prev,
+        "preventive_practices_kn": res_prev_kn,
+        "cultural_biological_management": res_cult,
+        "cultural_biological_management_kn": res_cult_kn,
+        "chemical_management": res_chem,
+        "chemical_management_kn": res_chem_kn,
+        "expert_warning": res_warn,
+        "expert_warning_kn": res_warn_kn,
+        "management": res_mgmt,
+        "management_kn": res_mgmt_kn,
+        "sources": advisory.get("sources", [REF_ICAR_CPCRI, REF_UAS_BANGALORE]),
+        "top_predictions": top_predictions,
+        "raw_class": predicted_class,
+        "model_architecture": "MobileNetV2 Arecanut CNN (9-class)",
+        "backend": "pytorch",
+        "image_quality": quality_info,
+        "is_plant": True,
+        "plant_coverage_pct": plausibility.get("plant_coverage_pct"),
+        "plausibility_note": plausibility.get("plausibility_note"),
+        "crop_match": crop_match,
+        "crop_mismatch_warning": crop_mismatch_warning,
+        "crop_support_status": "supported",
+        "identification_rationale": "Specialized PyTorch Arecanut CNN classifier.",
+        "visual_similarity": [],
+        "online_research": areca_research if not is_inconclusive else [],
+    }
 
 
 def run_vision_inference(image_bytes: bytes, block_crop: Optional[str] = None) -> Dict[str, Any]:
     """
     Unified entry point for Vision Agent inference.
-    Dispatches to configured backend ('multicrop' | 'keras' | 'pytorch').
+    Smart routing:
+    1. If user explicitly provided an Arecanut crop block/variety, route directly to PyTorch Arecanut CNN.
+    2. If backend_choice == "pytorch", route to PyTorch Arecanut CNN.
+    3. If backend_choice == "keras", route to Keras MobileNetV2.
+    4. In universal multicrop mode, run multicrop pipeline with automatic species detection
+       that routes Arecanut images to Arecanut CNN and 38-class crops to PlantVillage MobileNetV2.
     """
     backend_choice = getattr(settings, "VISION_BACKEND", "multicrop").lower()
 
-    if backend_choice == "multicrop":
-        return run_multicrop_vision_inference(image_bytes, block_crop=block_crop)
+    if backend_choice == "pytorch":
+        return run_pytorch_vision_inference(image_bytes, block_crop=block_crop)
     elif backend_choice == "keras":
         from backend.agents.vision.keras_inference import run_keras_vision_inference
         return run_keras_vision_inference(image_bytes)
-    elif backend_choice == "pytorch":
-        return run_pytorch_vision_inference(image_bytes, block_crop=block_crop)
-    else:
-        return run_multicrop_vision_inference(image_bytes, block_crop=block_crop)
+
+    # When explicit Arecanut crop context is requested, route directly to PyTorch Arecanut CNN
+    if block_crop:
+        b_clean = block_crop.lower().strip()
+        if any(term in b_clean for term in ["areca", "adike", "supari", "palm"]):
+            return run_pytorch_vision_inference(image_bytes, block_crop=block_crop)
+
+    return run_multicrop_vision_inference(image_bytes, block_crop=block_crop)

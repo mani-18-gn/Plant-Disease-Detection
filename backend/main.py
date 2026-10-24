@@ -8,6 +8,7 @@ from backend.config import settings
 from backend.db.session import engine
 from backend.db.base import Base
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # Import all models to ensure schema registration before table creation

@@ -451,6 +451,7 @@ export const DiseaseDetection = () => {
         setPreviewUrl(URL.createObjectURL(blob));
         setResult(null);
         setError("");
+        setTargetCrop("auto");
         stopCamera();
         setActiveTab("upload");
       },
@@ -470,6 +471,8 @@ export const DiseaseDetection = () => {
       setPreviewUrl(URL.createObjectURL(file));
       setResult(null);
       setError("");
+      // Reset targetCrop to auto so any previously clicked benchmark sample doesn't bias user uploads
+      setTargetCrop("auto");
     }
   };
 
@@ -507,9 +510,8 @@ export const DiseaseDetection = () => {
 
     try {
       const blockId = selectedCropBlock ? selectedCropBlock.id : null;
-      const cropContext = targetCrop !== "auto"
-        ? targetCrop
-        : (selectedCropBlock?.crop_type || selectedCropBlock?.name || null);
+      // In auto mode, pass null cropContext so backend vision models classify without species bias
+      const cropContext = targetCrop !== "auto" ? targetCrop : null;
 
       const response = await diseaseApi.detectDisease(blockId, selectedFile, cropContext);
       const detectionData = response.data || response;
@@ -946,6 +948,9 @@ export const DiseaseDetection = () => {
               accept="image/*"
               capture="environment"
               style={{ display: "none" }}
+              onClick={(e) => {
+                e.target.value = null;
+              }}
               onChange={(e) => {
                 handleFileChange(e);
                 stopCamera();
@@ -1274,6 +1279,9 @@ export const DiseaseDetection = () => {
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 style={{ display: "none" }}
+                onClick={(e) => {
+                  e.target.value = null;
+                }}
                 onChange={handleFileChange}
               />
 
@@ -1457,7 +1465,7 @@ export const DiseaseDetection = () => {
                   </span>
                 )}
 
-                {result.crop && (
+                {result.crop && !result.is_inconclusive && result.is_plant !== false && result.crop !== "Unverified Crop" && (
                   <span
                     style={{
                       fontSize: "0.85rem",
@@ -1473,7 +1481,7 @@ export const DiseaseDetection = () => {
                   </span>
                 )}
 
-                {result.scientific_name && (
+                {result.scientific_name && !result.is_inconclusive && (
                   <span style={{ fontSize: "0.8rem", color: "#64748b", fontStyle: "italic" }}>
                     ({result.scientific_name})
                   </span>
@@ -1511,12 +1519,14 @@ export const DiseaseDetection = () => {
                   fontWeight: 800,
                 }}
               >
-                {lang === "kn" && result.condition_kn
-                  ? `${result.crop_kn || result.crop} - ${result.condition_kn}`
-                  : result.predicted_disease}
+                {result.is_inconclusive
+                  ? (lang === "kn" ? (result.condition_kn || "ಅನಿಶ್ಚಿತ / ಕಡಿಮೆ ವಿಶ್ವಾಸಾರ್ಹತೆ") : (result.predicted_disease || "Inconclusive / Low Statistical Confidence"))
+                  : (lang === "kn" && result.condition_kn
+                      ? `${result.crop_kn || result.crop} - ${result.condition_kn}`
+                      : result.predicted_disease)}
               </h2>
 
-              {result.causal_agent && (
+              {result.causal_agent && !result.is_inconclusive && (
                 <div style={{ fontSize: "0.875rem", color: "#475569", fontWeight: 600, marginTop: "0.2rem" }}>
                   <span style={{ color: "#0284c7" }}>🔬 {t.causalAgent}:</span> {result.causal_agent}
                 </div>
@@ -1584,6 +1594,35 @@ export const DiseaseDetection = () => {
               )}
             </div>
           </div>
+
+          {/* Low Confidence / Uncertain State Banner */}
+          {result.is_inconclusive && (
+            <div
+              style={{
+                marginBottom: "1.25rem",
+                padding: "1rem 1.25rem",
+                background: "#fef3c7",
+                border: "1px solid #fde68a",
+                borderRadius: "10px",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.75rem",
+                color: "#92400e",
+              }}
+            >
+              <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: "2px" }} />
+              <div>
+                <strong style={{ fontSize: "0.95rem" }}>
+                  {lang === "kn" ? "ಅನಿಶ್ಚಿತ ಫಲಿತಾಂಶ / ಕಡಿಮೆ ವಿಶ್ವಾಸಾರ್ಹತೆ:" : "Uncertain Diagnosis / Low Statistical Confidence:"}
+                </strong>
+                <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.875rem", lineHeight: 1.5 }}>
+                  {lang === "kn"
+                    ? "ಈ ಚಿತ್ರದ ರೋಗ ಲಕ್ಷಣಗಳನ್ನು ಖಚಿತವಾಗಿ ಗುರುತಿಸಲು ಮಾದರಿಯ ವಿಶ್ವಾಸಾರ್ಹತೆ ಸಾಲದು. ಅನಗತ್ಯ ಅಥವಾ ತಪ್ಪು ರಾಸಾಯನಿಕ ಸಿಂಪಡಣೆಯನ್ನು ತಡೆಯಲು ಕೀಟನಾಶಕಗಳ ಸಲಹೆಯನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ನೈಸರ್ಗಿಕ ಬೆಳಕಿನಲ್ಲಿ ಸ್ಪಷ್ಟ, ಕೇಂದ್ರೀಕೃತ ಫೋಟೋವನ್ನು ತೆಗೆಯಿರಿ ಅಥವಾ ಹತ್ತಿರದ ಕೆವಿಕೆ ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ."
+                    : "The automated neural model cannot classify this image with sufficient statistical certainty. To protect your crop and prevent phytotoxicity, disease-specific chemical prescriptions are strictly withheld. Please upload a crisp, well-lit photo of a single leaf in daylight or consult a local agricultural extension officer."}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Cross-Species Consistency Warning if applicable */}
           {result.crop_mismatch_warning && (
