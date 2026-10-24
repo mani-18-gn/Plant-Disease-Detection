@@ -17,8 +17,8 @@ export const Sidebar = () => {
   const { logout, user } = useAuth();
 
   const navItems = [
-    { to: "/", label: "Overview", icon: LayoutDashboard },
-    { to: "/detect", label: "Disease Detection", icon: Camera },
+    { to: "/", label: "AI Disease Detection", icon: Camera },
+    { to: "/dashboard", label: "Farm Overview", icon: LayoutDashboard },
     { to: "/weather", label: "Weather Risk", icon: CloudSun },
     { to: "/market", label: "APMC Market", icon: TrendingUp },
     { to: "/advisory", label: "AI Advisory", icon: Sparkles },
@@ -127,6 +127,7 @@ export const Sidebar = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.to === "/"}
               className={({ isActive }) => (isActive ? "active" : "")}
               style={({ isActive }) => ({
                 display: "flex",
@@ -172,67 +173,93 @@ export const Sidebar = () => {
           backgroundColor: "#171e19",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <p
+        {user ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <p
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  color: "#ffffff",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  margin: 0,
+                  fontFamily: "var(--font-heading)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {user?.full_name || user?.username || "Farmer"}
+              </p>
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#ffe17c",
+                  margin: "2px 0 0 0",
+                  fontWeight: 600,
+                  fontFamily: "var(--font-body)",
+                }}
+              >
+                Karnataka Region
+              </p>
+            </div>
+            <button
+              onClick={logout}
+              title="Log out"
               style={{
-                fontSize: "0.9rem",
-                fontWeight: 800,
-                color: "#ffffff",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                margin: 0,
-                fontFamily: "var(--font-heading)",
-                letterSpacing: "-0.02em",
+                backgroundColor: "#ffffff",
+                border: "2px solid #000000",
+                color: "#000000",
+                cursor: "pointer",
+                padding: "0.45rem",
+                borderRadius: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "2px 2px 0px 0px #000000",
+                transition: "transform 0.12s, box-shadow 0.12s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#ff5252";
+                e.currentTarget.style.color = "#ffffff";
+                e.currentTarget.style.transform = "translate(2px, 2px)";
+                e.currentTarget.style.boxShadow = "0px 0px 0px 0px #000000";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "#ffffff";
+                e.currentTarget.style.color = "#000000";
+                e.currentTarget.style.transform = "none";
+                e.currentTarget.style.boxShadow = "2px 2px 0px 0px #000000";
               }}
             >
-              {user?.full_name || user?.username || "Farmer"}
-            </p>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                color: "#ffe17c",
-                margin: "2px 0 0 0",
-                fontWeight: 600,
-                fontFamily: "var(--font-body)",
-              }}
-            >
-              Karnataka Region
-            </p>
+              <LogOut size={16} strokeWidth={2.5} />
+            </button>
           </div>
-          <button
-            onClick={logout}
-            title="Log out"
+        ) : (
+          <NavLink
+            to="/login"
             style={{
-              backgroundColor: "#ffffff",
-              border: "2px solid #000000",
-              color: "#000000",
-              cursor: "pointer",
-              padding: "0.45rem",
-              borderRadius: "4px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              gap: "0.5rem",
+              width: "100%",
+              backgroundColor: "#ffe17c",
+              border: "2px solid #000000",
+              color: "#000000",
+              fontWeight: 800,
+              fontSize: "0.85rem",
+              padding: "0.55rem 0.75rem",
+              borderRadius: "4px",
               boxShadow: "2px 2px 0px 0px #000000",
-              transition: "transform 0.12s, box-shadow 0.12s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#ff5252";
-              e.currentTarget.style.color = "#ffffff";
-              e.currentTarget.style.transform = "translate(2px, 2px)";
-              e.currentTarget.style.boxShadow = "0px 0px 0px 0px #000000";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#ffffff";
-              e.currentTarget.style.color = "#000000";
-              e.currentTarget.style.transform = "none";
-              e.currentTarget.style.boxShadow = "2px 2px 0px 0px #000000";
+              textDecoration: "none",
+              fontFamily: "var(--font-heading)",
             }}
           >
-            <LogOut size={16} strokeWidth={2.5} />
-          </button>
-        </div>
+            <User size={16} strokeWidth={2.5} />
+            Farmer Login / Register
+          </NavLink>
+        )}
       </div>
     </aside>
   );

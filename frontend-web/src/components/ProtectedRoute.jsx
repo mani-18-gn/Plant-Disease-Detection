@@ -20,10 +20,6 @@ export const ProtectedLayout = () => {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
   return (
     <div className="app-container">
       <Sidebar />
@@ -33,7 +29,16 @@ export const ProtectedLayout = () => {
           <Outlet />
         </main>
       </div>
-      {showSetupModal && <FarmSetupModal />}
+      {showSetupModal && isAuthenticated && <FarmSetupModal />}
     </div>
   );
+};
+
+export const RequireAuth = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
 };

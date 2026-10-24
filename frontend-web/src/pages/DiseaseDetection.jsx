@@ -184,7 +184,7 @@ export const DiseaseDetection = () => {
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [activeTab, setActiveTab] = useState("upload"); // "upload" | "camera"
+  const [activeTab, setActiveTab] = useState("camera"); // "camera" | "upload"
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraFacingMode, setCameraFacingMode] = useState("environment"); // "environment" | "user"
@@ -285,6 +285,15 @@ export const DiseaseDetection = () => {
         setSampleImages(Array.isArray(data) ? data : []);
       })
       .catch((err) => console.warn("Sample images load error:", err.message));
+  }, []);
+
+  // Auto-initialize camera stream on mount so taking photo is the immediate first screen
+  useEffect(() => {
+    if (activeTab === "camera") {
+      startCamera(cameraFacingMode).catch((err) => {
+        console.warn("Camera auto-start notice:", err);
+      });
+    }
   }, []);
 
   // Cleanup camera stream
@@ -454,6 +463,7 @@ export const DiseaseDetection = () => {
         setTargetCrop("auto");
         stopCamera();
         setActiveTab("upload");
+        handleUpload(null, file);
       },
       "image/jpeg",
       0.95
@@ -498,9 +508,10 @@ export const DiseaseDetection = () => {
     }
   };
 
-  const handleUpload = async (e) => {
-    if (e) e.preventDefault();
-    if (!selectedFile) {
+  const handleUpload = async (e, overrideFile = null) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const file = overrideFile || selectedFile;
+    if (!file) {
       setError("Please select or capture a photograph first.");
       return;
     }
@@ -513,7 +524,7 @@ export const DiseaseDetection = () => {
       // In auto mode, pass null cropContext so backend vision models classify without species bias
       const cropContext = targetCrop !== "auto" ? targetCrop : null;
 
-      const response = await diseaseApi.detectDisease(blockId, selectedFile, cropContext);
+      const response = await diseaseApi.detectDisease(blockId, file, cropContext);
       const detectionData = response.data || response;
       setResult(detectionData);
       if (blockId) {
@@ -635,246 +646,6 @@ export const DiseaseDetection = () => {
         </div>
       </div>
 
-      {/* Active Crop Block Selection Banner */}
-      <div
-        className="card"
-        style={{
-          padding: "1rem 1.25rem",
-          marginBottom: "1.5rem",
-          background: "#ffffff",
-          border: selectedCropBlock ? "1px solid #bbf7d0" : "1px solid #fed7aa",
-          borderRadius: "12px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "0.85rem",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "10px",
-              background: selectedCropBlock ? "#ecfdf5" : "#eff6ff",
-              color: selectedCropBlock ? "#166534" : "#2563eb",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Leaf size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 600 }}>
-              {selectedCropBlock ? t.blockLabel : (lang === "kn" ? "ಕಾರ್ಯವಿಧಾನ:" : "Operating Mode:")}
-            </div>
-            <div style={{ fontSize: "1rem", fontWeight: 700, color: "#1e293b" }}>
-              {selectedCropBlock ? (
-                <>
-                  {selectedCropBlock.name}
-                  {selectedCropBlock.crop_type && (
-                    <span style={{ fontWeight: 400, color: "#64748b", marginLeft: "0.35rem" }}>
-                      ({selectedCropBlock.crop_type}
-                      {selectedCropBlock.variety ? ` - ${selectedCropBlock.variety}` : ""})
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span style={{ color: "#2563eb", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-                  <ShieldCheck size={18} />
-                  {t.noBlockSelected}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {cropBlocks && cropBlocks.length > 0 ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
-              {lang === "kn" ? "ಬ್ಲಾಕ್ ಬದಲಿಸಿ:" : "Switch Block:"}
-            </span>
-            <select
-              style={{
-                padding: "0.4rem 0.75rem",
-                borderRadius: "8px",
-                border: "1px solid #cbd5e1",
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                color: "#1e293b",
-                background: "#ffffff",
-              }}
-              value={selectedCropBlock?.id || ""}
-              onChange={(e) => selectCropBlockById(e.target.value)}
-            >
-              <option value="">-- {lang === "kn" ? "ಪೂರ್ವವೀಕ್ಷಣಾ ಮೋಡ್ (ಯಾವುದೇ ಬ್ಲಾಕ್ ಇಲ್ಲ)" : "Preview Mode (No Block)"} --</option>
-              {cropBlocks.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} ({b.crop_type || "Crop"})
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ fontSize: "0.85rem", padding: "0.4rem 0.85rem" }}
-            onClick={() => setShowSetupModal && setShowSetupModal(true)}
-          >
-            + {lang === "kn" ? "ಹೊಸ ಕ್ರಾಪ್ ಬ್ಲಾಕ್ ರಚಿಸಿ" : "Create Farm / Crop Block"}
-          </button>
-        )}
-      </div>
-
-      {/* Target Plant Species / Model Context Selector */}
-      <div
-        className="card"
-        style={{
-          padding: "0.9rem 1.25rem",
-          marginBottom: "1.5rem",
-          background: "#ffffff",
-          borderRadius: "12px",
-          border: targetCrop === "Arecanut" ? "1px solid #fde68a" : "1px solid #e2e8f0",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "0.75rem",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-          <div
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "8px",
-              background: targetCrop === "Arecanut" ? "#fef3c7" : "#ecfdf5",
-              color: targetCrop === "Arecanut" ? "#b45309" : "#059669",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Tag size={18} />
-          </div>
-          <div>
-            <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>
-              {lang === "kn" ? "ರೋಗ ತಪಾಸಣಾ ಬೆಳೆ ವ್ಯಾಪ್ತಿ / ಸಂದರ್ಭ:" : "Diagnostic Target Species / Context:"}
-            </div>
-            <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>
-              {targetCrop === "Arecanut"
-                ? "🌴 Arecanut Palm (ICAR-CPCRI Monograph Mode)"
-                : targetCrop === "auto"
-                ? "🌐 Auto-Detect (38 Benchmark PlantVillage Classes)"
-                : `${targetCrop} (MobileNetV2 Neural Model)`}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <select
-            id="crop-target-select"
-            style={{
-              padding: "0.45rem 0.85rem",
-              borderRadius: "8px",
-              border: targetCrop === "Arecanut" ? "2px solid #f59e0b" : "1px solid #cbd5e1",
-              fontSize: "0.85rem",
-              fontWeight: 600,
-              color: "#1e293b",
-              background: targetCrop === "Arecanut" ? "#fffbeb" : "#ffffff",
-              cursor: "pointer",
-            }}
-            value={targetCrop}
-            onChange={(e) => setTargetCrop(e.target.value)}
-          >
-            <option value="auto">🌐 Auto-Detect (38 PlantVillage Classes)</option>
-            <option value="Arecanut">🌴 Arecanut Palm (ಅಡಿಕೆ - ICAR-CPCRI Monograph)</option>
-            <option value="Tomato">🍅 Tomato (ಟೊಮ್ಯಾಟೊ)</option>
-            <option value="Potato">🥔 Potato (ಆಲೂಗಡ್ಡೆ)</option>
-            <option value="Corn">🌽 Corn / Maize (ಮೆಕ್ಕೆಜೋಳ)</option>
-            <option value="Grape">🍇 Grape (ದ್ರಾಕ್ಷಿ)</option>
-            <option value="Apple">🍎 Apple (ಸೇಬು)</option>
-            <option value="Pepper bell">🫑 Chilli / Pepper (ಮೆಣಸಿನಕಾಯಿ)</option>
-            <option value="Rice">🌾 Rice / Paddy (ಭತ್ತ - ICAR Monograph)</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Quick Test Benchmark Samples Pill Row */}
-      {sampleImages.length > 0 && (
-        <div
-          style={{
-            background: "linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%)",
-            borderRadius: "14px",
-            border: "1px solid #bbf7d0",
-            padding: "1rem 1.25rem",
-            marginBottom: "1.5rem",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <Sparkles size={16} color="#166534" />
-              <strong style={{ fontSize: "0.9rem", color: "#166534" }}>{t.quickTestTitle}</strong>
-            </div>
-            <span style={{ fontSize: "0.75rem", color: "#64748b" }}>{t.quickTestSubtitle}</span>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: "0.6rem",
-              overflowX: "auto",
-              paddingBottom: "0.35rem",
-              scrollbarWidth: "thin",
-            }}
-          >
-            {sampleImages.map((s, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSelectSample(s)}
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.45rem 0.85rem",
-                  background: "#ffffff",
-                  border: "1px solid #cbd5e1",
-                  borderRadius: "999px",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  color: "#334155",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.borderColor = "#16a34a";
-                  e.currentTarget.style.background = "#f0fdf4";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.borderColor = "#cbd5e1";
-                  e.currentTarget.style.background = "#ffffff";
-                }}
-              >
-                <span>{s.badge === "Healthy" ? "🟢" : (s.badge?.includes("PlantDoc") ? "🌾" : "🍂")}</span>
-                <span>{lang === "kn" && s.title_kn ? s.title_kn : s.title}</span>
-                {s.badge?.includes("PlantDoc") && (
-                  <span style={{ background: "#dcfce7", color: "#15803d", padding: "1px 6px", borderRadius: "4px", fontSize: "0.65rem", fontWeight: 700 }}>
-                    PlantDoc Field
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Main Upload / Live Camera Card */}
       <div
         className="card"
@@ -899,18 +670,6 @@ export const DiseaseDetection = () => {
         >
           <button
             type="button"
-            className={`btn ${activeTab === "upload" ? "btn-primary" : "btn-secondary"}`}
-            style={{ fontSize: "0.9rem", padding: "0.5rem 1rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
-            onClick={() => {
-              stopCamera();
-              setActiveTab("upload");
-            }}
-          >
-            <Upload size={16} />
-            {t.tabUpload}
-          </button>
-          <button
-            type="button"
             className={`btn ${activeTab === "camera" ? "btn-primary" : "btn-secondary"}`}
             style={{ fontSize: "0.9rem", padding: "0.5rem 1rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
             onClick={() => {
@@ -920,6 +679,18 @@ export const DiseaseDetection = () => {
           >
             <Camera size={16} />
             {t.tabCamera}
+          </button>
+          <button
+            type="button"
+            className={`btn ${activeTab === "upload" ? "btn-primary" : "btn-secondary"}`}
+            style={{ fontSize: "0.9rem", padding: "0.5rem 1rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
+            onClick={() => {
+              stopCamera();
+              setActiveTab("upload");
+            }}
+          >
+            <Upload size={16} />
+            {t.tabUpload}
           </button>
         </div>
 
@@ -1371,7 +1142,247 @@ export const DiseaseDetection = () => {
         )}
       </div>
 
-      {/* Loading Card */}
+      {/* Active Crop Block Selection Banner */}
+      <div
+        className="card"
+        style={{
+          padding: "1rem 1.25rem",
+          marginBottom: "1.5rem",
+          background: "#ffffff",
+          border: selectedCropBlock ? "1px solid #bbf7d0" : "1px solid #fed7aa",
+          borderRadius: "12px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "0.85rem",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "10px",
+              background: selectedCropBlock ? "#ecfdf5" : "#eff6ff",
+              color: selectedCropBlock ? "#166534" : "#2563eb",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Leaf size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 600 }}>
+              {selectedCropBlock ? t.blockLabel : (lang === "kn" ? "ಕಾರ್ಯವಿಧಾನ:" : "Operating Mode:")}
+            </div>
+            <div style={{ fontSize: "1rem", fontWeight: 700, color: "#1e293b" }}>
+              {selectedCropBlock ? (
+                <>
+                  {selectedCropBlock.name}
+                  {selectedCropBlock.crop_type && (
+                    <span style={{ fontWeight: 400, color: "#64748b", marginLeft: "0.35rem" }}>
+                      ({selectedCropBlock.crop_type}
+                      {selectedCropBlock.variety ? ` - ${selectedCropBlock.variety}` : ""})
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span style={{ color: "#2563eb", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                  <ShieldCheck size={18} />
+                  {t.noBlockSelected}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {cropBlocks && cropBlocks.length > 0 ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
+              {lang === "kn" ? "ಬ್ಲಾಕ್ ಬದಲಿಸಿ:" : "Switch Block:"}
+            </span>
+            <select
+              style={{
+                padding: "0.4rem 0.75rem",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                color: "#1e293b",
+                background: "#ffffff",
+              }}
+              value={selectedCropBlock?.id || ""}
+              onChange={(e) => selectCropBlockById(e.target.value)}
+            >
+              <option value="">-- {lang === "kn" ? "ಪೂರ್ವವೀಕ್ಷಣಾ ಮೋಡ್ (ಯಾವುದೇ ಬ್ಲಾಕ್ ಇಲ್ಲ)" : "Preview Mode (No Block)"} --</option>
+              {cropBlocks.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} ({b.crop_type || "Crop"})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ fontSize: "0.85rem", padding: "0.4rem 0.85rem" }}
+            onClick={() => setShowSetupModal && setShowSetupModal(true)}
+          >
+            + {lang === "kn" ? "ಹೊಸ ಕ್ರಾಪ್ ಬ್ಲಾಕ್ ರಚಿಸಿ" : "Create Farm / Crop Block"}
+          </button>
+        )}
+      </div>
+
+      {/* Target Plant Species / Model Context Selector */}
+      <div
+        className="card"
+        style={{
+          padding: "0.9rem 1.25rem",
+          marginBottom: "1.5rem",
+          background: "#ffffff",
+          borderRadius: "12px",
+          border: targetCrop === "Arecanut" ? "1px solid #fde68a" : "1px solid #e2e8f0",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "0.75rem",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <div
+            style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "8px",
+              background: targetCrop === "Arecanut" ? "#fef3c7" : "#ecfdf5",
+              color: targetCrop === "Arecanut" ? "#b45309" : "#059669",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Tag size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>
+              {lang === "kn" ? "ರೋಗ ತಪಾಸಣಾ ಬೆಳೆ ವ್ಯಾಪ್ತಿ / ಸಂದರ್ಭ:" : "Diagnostic Target Species / Context:"}
+            </div>
+            <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>
+              {targetCrop === "Arecanut"
+                ? "🌴 Arecanut Palm (ICAR-CPCRI Monograph Mode)"
+                : targetCrop === "auto"
+                ? "🌐 Auto-Detect (38 Benchmark PlantVillage Classes)"
+                : `${targetCrop} (MobileNetV2 Neural Model)`}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <select
+            id="crop-target-select"
+            style={{
+              padding: "0.45rem 0.85rem",
+              borderRadius: "8px",
+              border: targetCrop === "Arecanut" ? "2px solid #f59e0b" : "1px solid #cbd5e1",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              color: "#1e293b",
+              background: targetCrop === "Arecanut" ? "#fffbeb" : "#ffffff",
+              cursor: "pointer",
+            }}
+            value={targetCrop}
+            onChange={(e) => setTargetCrop(e.target.value)}
+          >
+            <option value="auto">🌐 Auto-Detect (38 PlantVillage Classes)</option>
+            <option value="Arecanut">🌴 Arecanut Palm (ಅಡಿಕೆ - ICAR-CPCRI Monograph)</option>
+            <option value="Tomato">🍅 Tomato (ಟೊಮ್ಯಾಟೊ)</option>
+            <option value="Potato">🥔 Potato (ಆಲೂಗಡ್ಡೆ)</option>
+            <option value="Corn">🌽 Corn / Maize (ಮೆಕ್ಕೆಜೋಳ)</option>
+            <option value="Grape">🍇 Grape (ದ್ರಾಕ್ಷಿ)</option>
+            <option value="Apple">🍎 Apple (ಸೇಬು)</option>
+            <option value="Pepper bell">🫑 Chilli / Pepper (ಮೆಣಸಿನಕಾಯಿ)</option>
+            <option value="Rice">🌾 Rice / Paddy (ಭತ್ತ - ICAR Monograph)</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Quick Test Benchmark Samples Pill Row */}
+      {sampleImages.length > 0 && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%)",
+            borderRadius: "14px",
+            border: "1px solid #bbf7d0",
+            padding: "1rem 1.25rem",
+            marginBottom: "1.5rem",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <Sparkles size={16} color="#166534" />
+              <strong style={{ fontSize: "0.9rem", color: "#166534" }}>{t.quickTestTitle}</strong>
+            </div>
+            <span style={{ fontSize: "0.75rem", color: "#64748b" }}>{t.quickTestSubtitle}</span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "0.6rem",
+              overflowX: "auto",
+              paddingBottom: "0.35rem",
+              scrollbarWidth: "thin",
+            }}
+          >
+            {sampleImages.map((s, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSelectSample(s)}
+                style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.45rem 0.85rem",
+                  background: "#ffffff",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "999px",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  color: "#334155",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = "#16a34a";
+                  e.currentTarget.style.background = "#f0fdf4";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = "#cbd5e1";
+                  e.currentTarget.style.background = "#ffffff";
+                }}
+              >
+                <span>{s.badge === "Healthy" ? "🟢" : (s.badge?.includes("PlantDoc") ? "🌾" : "🍂")}</span>
+                <span>{lang === "kn" && s.title_kn ? s.title_kn : s.title}</span>
+                {s.badge?.includes("PlantDoc") && (
+                  <span style={{ background: "#dcfce7", color: "#15803d", padding: "1px 6px", borderRadius: "4px", fontSize: "0.65rem", fontWeight: 700 }}>
+                    PlantDoc Field
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+            {/* Loading Card */}
       {loading && (
         <div
           className="card"

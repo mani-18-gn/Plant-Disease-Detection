@@ -2,7 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { FarmProvider } from "./context/FarmContext";
-import { ProtectedLayout } from "./components/ProtectedRoute";
+import { ProtectedLayout, RequireAuth } from "./components/ProtectedRoute";
 
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
@@ -24,15 +24,16 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
-            {/* Protected Application Routes */}
+            {/* Application Routes - Taking Photo & Diagnosis is the First Screen */}
             <Route element={<ProtectedLayout />}>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<DiseaseDetection />} />
               <Route path="/detect" element={<DiseaseDetection />} />
+              <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
               <Route path="/weather" element={<Weather />} />
               <Route path="/market" element={<Market />} />
               <Route path="/advisory" element={<Advisory />} />
-              <Route path="/activities" element={<ActivityLog />} />
-              <Route path="/profile" element={<FarmerProfile />} />
+              <Route path="/activities" element={<RequireAuth><ActivityLog /></RequireAuth>} />
+              <Route path="/profile" element={<RequireAuth><FarmerProfile /></RequireAuth>} />
             </Route>
 
             {/* Fallback */}
